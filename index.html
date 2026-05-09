@@ -59,7 +59,6 @@
             background-color: var(--bg-main); 
             display: flex; flex-direction: column;
             opacity: 0; pointer-events: none; z-index: 1;
-            /* 弃用易卡死的 ViewTransition，采用原生纯CSS淡入，极其丝滑 */
             transition: opacity 0.25s ease-in-out; 
         }
         .page.active { opacity: 1; pointer-events: auto; z-index: 5; }
@@ -160,12 +159,13 @@
             flex: 1; min-height: 0; overflow: hidden;
         }
         .detail-cover {
-            flex: 1; min-height: 0; aspect-ratio: 1; max-height: 240px;
+            /* 去除标题后，大幅度放宽 cover 的最大高度限制，充满空间 */
+            flex: 1; min-height: 0; aspect-ratio: 1; max-height: 320px;
             border-radius: var(--radius-lg); box-shadow: 0 15px 35px rgba(0,0,0,0.12);
-            background-size: cover; background-position: center;
+            background-size: cover; background-position: center; margin-bottom: 12px;
         }
+        /* 去除了 detail-text 和内部的 h2 标题 */
         .detail-text { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .detail-text h2 { font-size: 22px; font-weight: 800; margin-bottom: 4px; color: var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
         .detail-text p { font-size: 13px; color: var(--text-sub); }
         
         .btn-action-group { display: flex; gap: 12px; width: 100%; padding: 0 24px 15px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0;}
@@ -202,7 +202,7 @@
         .empty-state { text-align: center; color: var(--text-sub); padding: 40px 20px; font-size: 14px; }
 
         .sortable-ghost { opacity: 0.4; background: #F0F4F8; border: 2px dashed #CBD5E1; }
-        .sortable-drag { cursor: grabbing !important; box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important; scale: 1.02; z-index: 100;}
+        .sortable-drag { cursor: grabbing !important; box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important; transform: scale(1.02); z-index: 100;}
 
         /* ================= 3. 迷你播放器 ================= */
         .mini-player {
@@ -215,23 +215,46 @@
             -webkit-backdrop-filter: blur(15px) saturate(150%); border: 1px solid rgba(0, 0, 0, 0.05);
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             z-index: 99; transform: translateY(250%); 
+            /* 1. 外壳只保留进场/退场的动画，点击时绝不动！ */
             transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s;
             pointer-events: none;
             display: flex; align-items: center; justify-content: space-between;
+            will-change: transform, opacity;
+            
+            /* 2. 禁止移动端的双击默认放大，防止诡异跳动 */
+            touch-action: manipulation;
         }
+        
         .mini-player.visible { transform: translateY(0); pointer-events: auto; }
         
-        /* 防闪烁：不加 scale 位移，点击只改变透明度 */
-        .mini-player.visible:active { opacity: 0.6; transition: opacity 0.1s; }
+        /* 3. 去掉外壳的 active 状态！不要让它改变透明度和缩放 */
         
-        /* 防闪烁：完全瞬间隐藏，没有残影 */
         .mini-player.hidden-in-player { 
-            opacity: 0 !important; visibility: hidden !important; 
-            pointer-events: none !important; transform: translateY(0) !important; transition: none !important; 
+            opacity: 0 !important; 
+            visibility: hidden !important; 
+            pointer-events: none !important; 
+            transform: translateY(0) !important; 
+            transition: none !important; 
         }
         
-        .mini-cover { width: 44px; height: 44px; border-radius: var(--radius-sm); background-size: cover; background-position: center; background-color: #eee; margin-right: 12px; flex-shrink: 0;}
-        .mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; margin-right: 8px;}
+        /* 4. 给封皮和内部信息容器加上专属的点击缩小特效 (修改：去掉了封面的 transition 准备) */
+        .mini-cover { 
+            width: 44px; height: 44px; border-radius: var(--radius-sm); 
+            background-size: cover; background-position: center; background-color: #eee; 
+            margin-right: 12px; flex-shrink: 0;
+        }
+        .mini-info { 
+            flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; margin-right: 8px;
+            transition: transform 0.1s ease, opacity 0.1s ease; /* 准备缩放 */
+            transform-origin: left center; /* 确保文字向左侧缩放，不乱跑 */
+        }
+        
+        /* 5. 核心修改：去掉了 .mini-cover。现在只有当你点击迷你播放器时，里面的文字才变小！封面稳如泰山！ */
+        .mini-player.visible:active .mini-info {
+            transform: scale(0.95);
+            opacity: 0.7;
+        }
+
         .mini-info h4 { font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
         .mini-info p { font-size: 12px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .mini-controls { display: flex; gap: 8px; align-items: center; flex-shrink: 0;}
@@ -246,7 +269,6 @@
         
         .player-content { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; padding: 5px 32px calc(20px + env(safe-area-inset-bottom)); position: relative; }
         
-        /* 核心防闪：移除了导致动画错位的 transition */
         .main-cover-wrapper { flex: 1; display: flex; align-items: flex-start; justify-content: center; margin-top: 15px; margin-bottom: 25px; position: relative; }
         .main-cover { 
             width: 100%; aspect-ratio: 1; border-radius: var(--radius-lg); background-size: cover; 
@@ -373,7 +395,6 @@
             <div class="detail-info">
                 <div class="detail-cover" id="detail-cover" style="background-image: url('');"></div>
                 <div class="detail-text">
-                    <h2 id="detail-title-text">标题</h2>
                     <p id="detail-desc">包含 0 首歌曲</p>
                 </div>
             </div>
@@ -482,7 +503,7 @@
         <div class="action-sheet" id="action-sheet" onclick="event.stopPropagation()">
         </div>
     </div>
-
+    
     <div class="overlay" id="confirm-modal-overlay" onclick="closeModals(event)">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h3 id="confirm-modal-title">提示</h3>
@@ -553,8 +574,7 @@
     let currentSongId = null; 
     let playMode = 1; 
     let targetActionId = null; 
-
-    // 用于处理长按编辑模式的状态
+    
     let isEditMode = false;
     let justEnteredEditMode = false;
     let pressTimer = null;
@@ -588,15 +608,13 @@
 
     // ================= 应用启动初始化 =================
     async function startApp() {
-        // 绑定全局点击事件，用于在编辑模式下点击空白处退出编辑
         dom.pages.home.addEventListener('click', (e) => {
             if(isEditMode && !justEnteredEditMode && !e.target.closest('.card-delete-btn') && !e.target.closest('.playlist-card')) {
                 isEditMode = false;
                 dom.homeGrid.classList.remove('edit-mode');
             }
         });
-
-        // 核心修复：预激活 audio 以防锁屏后因为没有权限挂起播放
+        
         dom.audioPlayer.load();
 
         try {
@@ -616,7 +634,6 @@
             });
 
         } catch (e) {
-            console.error("启动失败，使用空状态", e);
             playlists = [];
         }
         
@@ -657,7 +674,7 @@
         dom.sheetOverlay.classList.remove('show');
         dom.confirmModal.classList.remove('show');
     }
-
+    
     function openConfirmModal(title, text, confirmCallback) {
         document.getElementById('confirm-modal-title').innerText = title;
         document.getElementById('confirm-modal-text').innerText = text;
@@ -721,7 +738,7 @@
         }
         closeModals(); renderHomePlaylists();
     }
-
+    
     let lastDeleteTime = 0;
     function deletePlaylistById(id, event) {
         if(event) { event.preventDefault(); event.stopPropagation(); }
@@ -783,7 +800,6 @@
             </div>`;
         }).join('');
 
-        // 绑定长按事件触发抖动编辑模式
         const cards = dom.homeGrid.querySelectorAll('.playlist-card');
         cards.forEach(card => {
             const startPress = () => {
@@ -839,7 +855,6 @@
         
         safeTransition('detail', () => {
             document.getElementById('detail-cover').style.backgroundImage = getPlaylistDisplayCover(currentPlaylist);
-            document.getElementById('detail-title-text').innerText = currentPlaylist.title;
             document.getElementById('detail-top-title').innerText = currentPlaylist.title;
             document.getElementById('detail-desc').innerText = `包含 ${currentPlaylist.songs.length} 首歌曲`;
             renderSongList();
@@ -1055,7 +1070,6 @@
         return currentPlaylist.songs[nextIndex];
     }
 
-    // 核心修复 3：加入 Promise 捕获，解决因为切歌太快导致的 DOMException 崩溃死机
     function playSong(songId) {
         if(!songId) { dom.audioPlayer.pause(); syncPlayIcon(false); return; }
         if (currentSongId === songId && dom.audioPlayer.src) {
@@ -1074,7 +1088,7 @@
         
         const playPromise = dom.audioPlayer.play();
         if (playPromise !== undefined) {
-            playPromise.then(() => syncPlayIcon(true)).catch(e => { console.error("快速切歌中断捕获:", e); syncPlayIcon(false); });
+            playPromise.then(() => syncPlayIcon(true)).catch(e => { console.error("自动播放错误:", e); syncPlayIcon(false); });
         }
     }
 
@@ -1278,7 +1292,6 @@
         document.getElementById('player-title').innerText = song.title;
         document.getElementById('player-artist').innerText = song.artist;
 
-        // 核心修复 2：同步更新系统锁屏媒体数据，保证手机熄屏也能控制！
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: song.title,
@@ -1302,7 +1315,6 @@
     let touchstartY = 0;
 
     document.addEventListener('touchstart', e => {
-        // 记录手指初始按下的位置
         touchstartX = e.changedTouches[0].screenX;
         touchstartY = e.changedTouches[0].screenY;
     }, {passive: true});
