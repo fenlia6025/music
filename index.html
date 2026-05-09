@@ -9,21 +9,18 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="pmusic">
     <meta name="theme-color" content="#F4F6F9">
-    
-    <!-- 苹果 iOS 桌面图标 (高清自绘音乐图标) -->
     <link rel="apple-touch-icon" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='115' fill='%23FF2D55'/%3E%3Cpath d='M352 144c-35.3 0-64 28.7-64 64v144c0 35.3-28.7 64-64 64s-64-28.7-64-64 28.7-64 64-64c11.3 0 22 2.9 32 8V208c0-53 43-96 96-96h16v64h-16z' fill='%23FFF'/%3E%3C/svg%3E">
-    <!-- 安卓/通用 桌面图标 -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='115' fill='%23FF2D55'/%3E%3Cpath d='M352 144c-35.3 0-64 28.7-64 64v144c0 35.3-28.7 64-64 64s-64-28.7-64-64 28.7-64 64-64c11.3 0 22 2.9 32 8V208c0-53 43-96 96-96h16v64h-16z' fill='%23FFF'/%3E%3C/svg%3E">
 
     <title>pmusic</title>
     <!-- 解析本地音频 ID3 信息 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
-    <!-- 新增全能解析引擎：完美支持 FLAC、OGG、WAV 等无损格式的封面提取 -->
+    <!-- 支持无损格式封面提取 -->
     <script src="https://cdn.jsdelivr.net/npm/music-metadata-browser@2.5.11/dist/music-metadata-browser.min.js"></script>
-    <!-- 支持移动端长按拖拽排序 -->
+    <!-- 支持移动端拖拽排序 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    
     <style>
-        /* ================= 基础变量与重置 ================= */
         :root {
             --bg-main: #F4F6F9;
             --bg-surface: #FFFFFF;
@@ -40,8 +37,8 @@
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         html, body {
-            width: 100%; height: 100%;
-            background-color: transparent !important; 
+            width: 100%; height: 100dvh;
+            background-color: var(--bg-main); 
             font-family: var(--font-family); color: var(--text-main);
             position: fixed; inset: 0; overflow: hidden;
             -webkit-user-select: none; user-select: none; 
@@ -51,7 +48,7 @@
 
         .device-mockup {
             position: absolute; inset: 0;
-            background-color: transparent !important;
+            background-color: var(--bg-main);
             overflow: hidden; display: flex; flex-direction: column;
         }
         ::-webkit-scrollbar { display: none; }
@@ -59,13 +56,13 @@
         /* ================= 通用样式 & 动画 ================= */
         .page {
             position: absolute; inset: 0;
-            background-color: transparent !important; 
+            background-color: var(--bg-main); 
             display: flex; flex-direction: column;
             opacity: 0; pointer-events: none; z-index: 1;
+            /* 弃用易卡死的 ViewTransition，采用原生纯CSS淡入，极其丝滑 */
+            transition: opacity 0.25s ease-in-out; 
         }
         .page.active { opacity: 1; pointer-events: auto; z-index: 5; }
-        
-        .no-vt .page { transition: opacity 0.25s ease-in-out; }
         
         .clickable { transition: scale 0.15s ease, opacity 0.15s; cursor: pointer; scale: 1; }
         .clickable:active { scale: 0.95; opacity: 0.8; }
@@ -82,7 +79,7 @@
         .home-header {
             display: flex; justify-content: space-between; align-items: center;
             padding: calc(15px + env(safe-area-inset-top, 0px)) 20px 10px 20px; 
-            background-color: transparent !important; flex-shrink: 0; 
+            background-color: var(--bg-main); flex-shrink: 0; 
         }
         .home-header h1 { 
             font-size: 28px; font-weight: 800; color: var(--text-main); flex: 1; 
@@ -115,42 +112,37 @@
         .playlist-card h3 { font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
         .playlist-card p { font-size: 11px; color: var(--text-sub); margin: 0; }
 
-        /* 新增：长按编辑模式动画与红X按钮 */
+        /* 长按编辑模式动画与红X按钮 */
         @keyframes wiggle {
             0% { transform: rotate(-1deg); }
             50% { transform: rotate(1deg); }
             100% { transform: rotate(-1deg); }
         }
         .playlist-grid.edit-mode .playlist-card {
-            animation: wiggle 0.4s infinite; /* 核心修复：幅度减小为1度，一点点动 */
+            animation: wiggle 0.4s infinite; 
         }
         .playlist-grid.edit-mode .card-play-btn {
             opacity: 0; pointer-events: none;
         }
         .card-delete-btn {
-            /* 核心修复：移到封面的正中间，稍微变大，完全防止顶部遮挡 */
             position: absolute; top: 50%; left: 50%; width: 44px; height: 44px;
             background: rgba(255, 45, 85, 0.95); color: white; border-radius: 50%; border: 2px solid var(--bg-surface);
             display: flex; justify-content: center; align-items: center; z-index: 20;
             box-shadow: 0 8px 20px rgba(255, 45, 85, 0.3); 
-            /* 居中定位需要用到 translate(-50%, -50%) */
             opacity: 0; transform: translate(-50%, -50%) scale(0); 
             transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
             cursor: pointer; pointer-events: none; outline: none;
         }
-        .card-delete-btn::after {
-            content: ''; position: absolute; inset: -20px;
-        }
+        .card-delete-btn::after { content: ''; position: absolute; inset: -20px; }
         .playlist-grid.edit-mode .card-delete-btn {
-            /* 展开时也必须保留居中偏移 */
             opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto;
         }
 
         /* ================= 2. 歌单内容页 ================= */
         .detail-header {
-            /* 撤销强制高度，恢复自然弹性排版，解决排版错乱问题 */
+            height: 46%;
             display: flex; flex-direction: column; 
-            background-color: transparent !important; 
+            background-color: var(--bg-main); 
             flex-shrink: 0; z-index: 10;
         }
         .detail-top-bar {
@@ -158,18 +150,21 @@
             padding: calc(15px + env(safe-area-inset-top, 0px)) 20px 10px 20px;
             background: transparent; flex-shrink: 0;
         }
-        
+        .detail-top-title {
+            flex: 1; text-align: center; font-size: 16px; font-weight: bold; color: var(--text-main);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 10px;
+        }
         .detail-info { 
-            display: flex; flex-direction: column; align-items: center; gap: 12px; 
-            margin-top: 5px; margin-bottom: 15px; text-align: center; 
-            flex-shrink: 0; 
+            display: flex; flex-direction: column; align-items: center; gap: 8px; 
+            margin-top: 0px; margin-bottom: 8px; text-align: center; 
+            flex: 1; min-height: 0; overflow: hidden;
         }
         .detail-cover {
-            width: 210px; height: 210px; max-width: 55vw; max-height: 55vw;
-            border-radius: var(--radius-lg); box-shadow: 0 15px 35px rgba(0,0,0,0.15);
-            background-size: cover; background-position: center; flex-shrink: 0;
+            flex: 1; min-height: 0; aspect-ratio: 1; max-height: 240px;
+            border-radius: var(--radius-lg); box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+            background-size: cover; background-position: center;
         }
-        .detail-text { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 5px; }
+        .detail-text { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .detail-text h2 { font-size: 22px; font-weight: 800; margin-bottom: 4px; color: var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
         .detail-text p { font-size: 13px; color: var(--text-sub); }
         
@@ -182,7 +177,7 @@
         .btn-action.secondary { background: var(--bg-surface); color: var(--text-main); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
 
         .song-list { 
-            flex: 1;
+            height: 54%;
             padding: 10px 20px calc(120px + env(safe-area-inset-bottom)); 
             overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
         }
@@ -223,23 +218,19 @@
             transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s;
             pointer-events: none;
             display: flex; align-items: center; justify-content: space-between;
-            will-change: transform, opacity;
         }
         .mini-player.visible { transform: translateY(0); pointer-events: auto; }
         
+        /* 防闪烁：不加 scale 位移，点击只改变透明度 */
         .mini-player.visible:active { opacity: 0.6; transition: opacity 0.1s; }
         
-        /* 终极防闪烁：不仅物理坐标原地锁定，而且瞬间切断动画并隐身，让系统绝对抓不到残影！ */
+        /* 防闪烁：完全瞬间隐藏，没有残影 */
         .mini-player.hidden-in-player { 
-            opacity: 0 !important; 
-            visibility: hidden !important; 
-            pointer-events: none !important; 
-            transform: translateY(0) !important; 
-            transition: none !important; 
+            opacity: 0 !important; visibility: hidden !important; 
+            pointer-events: none !important; transform: translateY(0) !important; transition: none !important; 
         }
         
         .mini-cover { width: 44px; height: 44px; border-radius: var(--radius-sm); background-size: cover; background-position: center; background-color: #eee; margin-right: 12px; flex-shrink: 0;}
-        
         .mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; margin-right: 8px;}
         .mini-info h4 { font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
         .mini-info p { font-size: 12px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -248,10 +239,7 @@
         .mini-btn svg { width: 20px; height: 20px; fill: currentColor; }
 
         /* ================= 4. 全屏播放器及歌词页 ================= */
-        #page-player { z-index: 90; background-color: transparent !important; } 
-        
-        .player-bg { display: none !important; }
-        .player-bg::after { display: none !important; }
+        #page-player { z-index: 90; background-color: var(--bg-main); } 
         
         .player-header { display: flex; justify-content: space-between; align-items: center; padding: calc(15px + env(safe-area-inset-top, 0px)) 20px 10px 20px; position: relative; }
         .player-header span { color: var(--text-main); font-size: 16px; font-weight: 900; letter-spacing: 3px; }
@@ -263,7 +251,6 @@
             width: 100%; aspect-ratio: 1; border-radius: var(--radius-lg); background-size: cover; 
             background-position: center; background-color: #eee; box-shadow: 0 20px 50px rgba(0,0,0,0.15);
             transition: opacity 0.3s, transform 0.3s;
-            will-change: transform, opacity;
         }
         .main-cover.hidden { opacity: 0; transform: scale(0.9); pointer-events: none; }
         
@@ -271,18 +258,15 @@
             position: absolute; inset: 0; background: transparent;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             padding: 24px 0; transition: opacity 0.3s, transform 0.3s; opacity: 1; z-index: 10;
-            will-change: transform, opacity;
         }
         .lyrics-view.hidden { opacity: 0; transform: scale(1.05); pointer-events: none; }
         .lyrics-content {
-            /* 核心修复：普通歌词字号放大至 18px，增加行高让阅读更舒适 */
             flex: 1; width: 100%; overflow-y: auto; text-align: center; color: var(--text-main); font-size: 18px; line-height: 2.2;
             -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
             mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
             scroll-behavior: smooth;
         }
         .lyrics-line { transition: color 0.3s, transform 0.3s, opacity 0.3s; padding: 6px 0; opacity: 0.5;}
-        /* 核心修复：当前播放歌词放大至 24px，极其醒目 */
         .lyrics-line.active { color: var(--accent); font-weight: bold; font-size: 24px; transform: scale(1.05); opacity: 1;}
 
         .player-info-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; }
@@ -323,7 +307,7 @@
         .modal-btns { display: flex; gap: 12px; }
         .modal-btns button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 15px; font-weight: bold; }
         .btn-cancel { background: #E2E8F0; color: var(--text-main); }
-        .btn-confirm { background: var(--text-main); color: white; }
+        .btn-confirm { background: var(--accent); color: white; }
 
         .action-sheet {
             background: var(--bg-surface); width: 100%; 
@@ -340,12 +324,9 @@
         .sheet-btn:last-child { border-bottom: none; }
         .sheet-btn.danger { color: var(--accent); }
         .sheet-btn svg { width: 20px; height: 20px; fill: currentColor; }
-
-        ::view-transition-old(album-cover), ::view-transition-new(album-cover) { animation-duration: 0.35s; animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1); }
-        ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.25s; }
         
         #startup-loader {
-            position: fixed; inset: 0; background-color: transparent !important; z-index: 999;
+            position: fixed; inset: 0; background: var(--bg-main); z-index: 999;
             display: flex; justify-content: center; align-items: center; transition: opacity 0.3s;
         }
     </style>
@@ -382,6 +363,7 @@
                 <button class="header-btn clickable" onclick="navigate('home')">
                     <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
                 </button>
+                <div class="detail-top-title" id="detail-top-title"></div>
                 <button class="header-btn clickable" id="btn-playlist-more" onclick="openPlaylistSheet()">
                     <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                 </button>
@@ -411,7 +393,7 @@
     </div>
 
     <!-- ================= 悬浮迷你播放器 ================= -->
-    <div id="mini-player" class="mini-player" onclick="openPlayer(event)">
+    <div id="mini-player" class="mini-player clickable" onclick="openPlayer(event)">
         <div class="mini-cover" id="mini-cover" style="background-image: url('');"></div>
         <div class="mini-info">
             <h4 id="mini-title">未播放</h4>
@@ -432,8 +414,6 @@
 
     <!-- ================= 页面 3：全屏播放器 ================= -->
     <div id="page-player" class="page">
-        <div class="player-bg" id="player-bg" style="background-image: url('');"></div>
-        
         <div class="player-header">
             <button class="header-btn clickable" onclick="closePlayer()">
                 <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
@@ -502,7 +482,6 @@
         </div>
     </div>
 
-    <!-- 核心修复 1：新增原生的自定义确认弹窗，彻底替代会被系统拦截的系统弹窗！绝对不会再没反应！ -->
     <div class="overlay" id="confirm-modal-overlay" onclick="closeModals(event)">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h3 id="confirm-modal-title">提示</h3>
@@ -571,11 +550,10 @@
     let playlists = [];
     let currentPlaylist = null;
     let currentSongId = null; 
-    let isTransitioning = false;
     let playMode = 1; 
     let targetActionId = null; 
 
-    // 新增：用于处理长按编辑模式的状态
+    // 用于处理长按编辑模式的状态
     let isEditMode = false;
     let justEnteredEditMode = false;
     let pressTimer = null;
@@ -600,7 +578,7 @@
         modalInput: document.getElementById('modal-input'),
         sheetOverlay: document.getElementById('sheet-overlay'),
         actionSheet: document.getElementById('action-sheet'),
-        confirmModal: document.getElementById('confirm-modal-overlay'), // 注册新弹窗
+        confirmModal: document.getElementById('confirm-modal-overlay'),
         pages: { home: document.getElementById('page-home'), detail: document.getElementById('page-detail'), player: document.getElementById('page-player') }
     };
 
@@ -609,10 +587,6 @@
 
     // ================= 应用启动初始化 =================
     async function startApp() {
-        if (!document.startViewTransition) {
-            document.documentElement.classList.add('no-vt');
-        }
-        
         // 绑定全局点击事件，用于在编辑模式下点击空白处退出编辑
         dom.pages.home.addEventListener('click', (e) => {
             if(isEditMode && !justEnteredEditMode && !e.target.closest('.card-delete-btn') && !e.target.closest('.playlist-card')) {
@@ -626,7 +600,7 @@
             const data = await loadDataFromDB();
             
             if(data.playlists && data.playlists.length > 0) {
-                playlists = data.playlists.filter(p => p.id !== 'sys_liked'); 
+                playlists = data.playlists.filter(p => !p.isSystem && p.id !== 'sys_liked'); 
             } else {
                 playlists = []; 
             }
@@ -650,51 +624,18 @@
         setTimeout(() => loader.style.display = 'none', 300);
     }
 
-    // ================= 动画与视图 =================
-    function safeTransition(sourceEl, destEl, targetPageId, callback) {
-        if (isTransitioning) return;
+    // ================= 动画与视图 (无 ViewTransition 版本) =================
+    function safeTransition(targetPageId, callback) {
+        if(callback) callback();
         
-        const executeDomUpdate = () => {
-            if(callback) callback();
-            Object.values(dom.pages).forEach(p => p.classList.remove('active'));
-            dom.pages[targetPageId].classList.add('active');
-            
-            if (targetPageId === 'player') {
-                dom.miniPlayer.classList.add('hidden-in-player');
-            } else {
-                dom.miniPlayer.classList.remove('hidden-in-player');
-            }
-        };
-
-        if (!document.startViewTransition) {
-            executeDomUpdate();
-            return;
+        Object.values(dom.pages).forEach(p => p.classList.remove('active'));
+        dom.pages[targetPageId].classList.add('active');
+        
+        if (targetPageId === 'player') {
+            dom.miniPlayer.classList.add('hidden-in-player');
+        } else {
+            dom.miniPlayer.classList.remove('hidden-in-player');
         }
-        
-        isTransitioning = true;
-        const fallbackTimeout = setTimeout(() => { isTransitioning = false; }, 1000);
-        
-        document.querySelectorAll('[style*="view-transition-name"]').forEach(el => {
-            el.style.viewTransitionName = '';
-        });
-
-        if (sourceEl) sourceEl.style.viewTransitionName = 'album-cover';
-        
-        const transition = document.startViewTransition(() => {
-            if (sourceEl) sourceEl.style.viewTransitionName = '';
-            executeDomUpdate();
-            if (destEl) destEl.style.viewTransitionName = 'album-cover';
-        });
-        
-        transition.finished.finally(() => {
-            clearTimeout(fallbackTimeout);
-            if (sourceEl) sourceEl.style.viewTransitionName = '';
-            if (destEl) destEl.style.viewTransitionName = '';
-            isTransitioning = false;
-        }).catch(() => {
-            clearTimeout(fallbackTimeout);
-            isTransitioning = false;
-        });
     }
 
     // ================= 弹窗与编辑菜单 =================
@@ -713,7 +654,6 @@
         dom.confirmModal.classList.remove('show');
     }
 
-    // 核心修复 2：全新的自定义调用弹窗函数
     function openConfirmModal(title, text, confirmCallback) {
         document.getElementById('confirm-modal-title').innerText = title;
         document.getElementById('confirm-modal-text').innerText = text;
@@ -730,6 +670,9 @@
             <div class="sheet-title">歌单: ${currentPlaylist.title}</div>
             <button class="sheet-btn clickable" onclick="dom.sheetOverlay.classList.remove('show'); openInputModal('重命名歌单', '${currentPlaylist.title}', renamePlaylist)">
                 <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg> 重命名
+            </button>
+            <button class="sheet-btn danger clickable" onclick="dom.sheetOverlay.classList.remove('show'); deletePlaylist()">
+                <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> 删除歌单
             </button>
         `;
         dom.sheetOverlay.classList.add('show');
@@ -769,40 +712,32 @@
         if(pl) { 
             pl.title = name; 
             document.getElementById('detail-title-text').innerText = name;
+            document.getElementById('detail-top-title').innerText = name;
             savePlaylistsToDB();
         }
         closeModals(); renderHomePlaylists();
     }
 
-    // 核心修复 3：使用自定义弹窗并保留音乐播放
-    let lastDeleteTime = 0;
     function deletePlaylistById(id, event) {
         if(event) { event.preventDefault(); event.stopPropagation(); }
-        // 增加防连点保护，防止 touchstart 和 click 双重触发
-        if(Date.now() - lastDeleteTime < 500) return;
-        lastDeleteTime = Date.now();
-
-        // 呼出我们自己写的、绝对不会被拦截的弹窗！
+        
         openConfirmModal('删除歌单', '确定要彻底删除此歌单吗？', () => {
             playlists = playlists.filter(p => p.id !== id);
             savePlaylistsToDB();
             
-            // 退出抖动编辑模式
             isEditMode = false;
             dom.homeGrid.classList.remove('edit-mode');
             
-            // 牢记你的要求：绝对不停止音乐播放！仅刷新 UI
             renderHomePlaylists();
         });
     }
 
-    // 同步修复普通详情页菜单里的删除功能
     function deletePlaylist() {
         openConfirmModal('删除歌单', '确定要彻底删除此歌单吗？', () => {
             playlists = playlists.filter(p => p.id !== targetActionId);
             savePlaylistsToDB();
             
-            // 牢记要求：不打断音乐播放
+            currentPlaylist = null; 
             renderHomePlaylists();
             navigate('home');
         });
@@ -828,11 +763,10 @@
         dom.homeGrid.innerHTML = playlists.map(p => {
             return `
             <div class="playlist-card clickable" onclick="openPlaylist('${p.id}', event)">
+                <button type="button" class="card-delete-btn" onclick="deletePlaylistById('${p.id}', event)">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
                 <div class="cover-box" style="background-image: ${getPlaylistDisplayCover(p)};" id="card-cover-${p.id}">
-                    <!-- 核心修复 4：为红叉加入最底层的 ontouchstart 事件，强行破开 iOS 动画对点击的拦截 -->
-                    <button type="button" class="card-delete-btn" onclick="deletePlaylistById('${p.id}', event)" ontouchstart="deletePlaylistById('${p.id}', event)">
-                        <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                    </button>
                     <button class="card-play-btn" onclick="quickPlayPlaylist('${p.id}', event)">
                         <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                     </button>
@@ -842,30 +776,28 @@
             </div>`;
         }).join('');
 
-        // 绑定长按事件触发抖动编辑模式
+        // 绑定长按事件触发抖动编辑模式，增加 500ms 强制保护防误触
         const cards = dom.homeGrid.querySelectorAll('.playlist-card');
         cards.forEach(card => {
             const startPress = () => {
                 if (isEditMode) return;
                 pressTimer = setTimeout(() => {
                     isEditMode = true;
-                    justEnteredEditMode = true; // 只要你手指按着，就一直保持防误触保护
+                    justEnteredEditMode = true;
                     dom.homeGrid.classList.add('edit-mode');
                     if(navigator.vibrate) navigator.vibrate(50);
                 }, 500); 
             };
             const clearPress = () => { 
                 if(pressTimer) clearTimeout(pressTimer); 
-                // 核心修复：必须等你手指松开（离开屏幕）后，才开始 300 毫秒的倒计时解除保护！
                 if(justEnteredEditMode) {
-                    setTimeout(() => justEnteredEditMode = false, 300);
+                    setTimeout(() => justEnteredEditMode = false, 500);
                 }
             };
             
             card.addEventListener('touchstart', startPress, {passive: true});
             card.addEventListener('touchend', clearPress);
             card.addEventListener('touchcancel', clearPress);
-            // 滑动时取消倒计时，避免滑屏时误触发长按
             card.addEventListener('touchmove', () => { if(pressTimer) clearTimeout(pressTimer); }, {passive: true});
             card.addEventListener('mousedown', startPress);
             card.addEventListener('mouseup', clearPress);
@@ -885,7 +817,6 @@
     }
 
     function openPlaylist(id, event) {
-        // 如果刚刚长按进入编辑模式，或者当前处于编辑模式，则拦截点击，改为退出编辑模式
         if(justEnteredEditMode) {
             if(event) { event.preventDefault(); event.stopPropagation(); }
             return;
@@ -898,19 +829,18 @@
         }
 
         currentPlaylist = playlists.find(p => p.id === id);
-        const cardCover = document.getElementById(`card-cover-${id}`);
-        const detailCover = document.getElementById('detail-cover');
-
-        safeTransition(cardCover, detailCover, 'detail', () => {
-            detailCover.style.backgroundImage = getPlaylistDisplayCover(currentPlaylist);
+        
+        safeTransition('detail', () => {
+            document.getElementById('detail-cover').style.backgroundImage = getPlaylistDisplayCover(currentPlaylist);
             document.getElementById('detail-title-text').innerText = currentPlaylist.title;
+            document.getElementById('detail-top-title').innerText = currentPlaylist.title;
             document.getElementById('detail-desc').innerText = `包含 ${currentPlaylist.songs.length} 首歌曲`;
             renderSongList();
         });
     }
 
     function quickPlayPlaylist(id, event) {
-        event.preventDefault(); event.stopPropagation();
+        if(event) { event.preventDefault(); event.stopPropagation(); }
         const pl = playlists.find(p => p.id === id);
         if(pl && pl.songs.length > 0) { currentPlaylist = pl; playSong(pl.songs[0]); }
     }
@@ -958,7 +888,6 @@
     }
 
     function renderSongList() {
-        // 核心修复 3：同理，安全注销歌曲列表的拖拽组件，杜绝任何崩溃可能
         if(window.playlistSortable) {
             try { window.playlistSortable.destroy(); } catch(e) {}
             window.playlistSortable = null;
@@ -1171,14 +1100,19 @@
     function parseLRC(lrcText) {
         const lines = lrcText.split('\n');
         const result = [];
-        const timeReg = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+        // 核心修复：增强时间轴正则，兼容所有特殊歌词格式并正确补齐毫秒
+        const timeReg = /\[(\d{2,}):(\d{2})(?:\.(\d{1,3}))?\]/;
         for (let line of lines) {
             const match = timeReg.exec(line);
             if (match) {
                 const min = parseInt(match[1]);
                 const sec = parseInt(match[2]);
-                const ms = parseInt(match[3]);
-                const time = min * 60 + sec + ms / (match[3].length === 2 ? 100 : 1000);
+                const msStr = match[3] || '0';
+                let ms = parseInt(msStr);
+                if (msStr.length === 1) ms *= 100;
+                else if (msStr.length === 2) ms *= 10;
+                
+                const time = min * 60 + sec + ms / 1000;
                 const text = line.replace(timeReg, '').trim();
                 if(text) result.push({ time, text });
             }
@@ -1339,13 +1273,9 @@
         }
     }
 
-    function openPlayer(e) { if (e && e.target.closest('.mini-controls')) return; if (currentSongId) safeTransition(document.getElementById('mini-cover'), document.getElementById('player-cover'), 'player'); }
-    function closePlayer() { safeTransition(document.getElementById('player-cover'), document.getElementById('mini-cover'), currentPlaylist ? 'detail' : 'home'); }
-    function navigate(pageId) { 
-        const detailCover = document.getElementById('detail-cover');
-        const cardCover = currentPlaylist ? document.getElementById(`card-cover-${currentPlaylist.id}`) : null;
-        safeTransition(detailCover, cardCover, pageId); 
-    }
+    function openPlayer(e) { if (e && e.target.closest('.mini-controls')) return; if (currentSongId) safeTransition('player'); }
+    function closePlayer() { safeTransition(currentPlaylist ? 'detail' : 'home'); }
+    function navigate(pageId) { safeTransition(pageId); }
 
     // 启动 App
     startApp();
