@@ -159,12 +159,10 @@
             flex: 1; min-height: 0; overflow: hidden;
         }
         .detail-cover {
-            /* 去除标题后，大幅度放宽 cover 的最大高度限制，充满空间 */
             flex: 1; min-height: 0; aspect-ratio: 1; max-height: 320px;
             border-radius: var(--radius-lg); box-shadow: 0 15px 35px rgba(0,0,0,0.12);
             background-size: cover; background-position: center; margin-bottom: 12px;
         }
-        /* 去除了 detail-text 和内部的 h2 标题 */
         .detail-text { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .detail-text p { font-size: 13px; color: var(--text-sub); }
         
@@ -215,19 +213,19 @@
             -webkit-backdrop-filter: blur(15px) saturate(150%); border: 1px solid rgba(0, 0, 0, 0.05);
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             z-index: 99; transform: translateY(250%); 
-            /* 1. 外壳只保留进场/退场的动画，点击时绝不动！ */
+            /* 外壳只保留进场/退场的动画，点击时绝不动！ */
             transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s;
             pointer-events: none;
             display: flex; align-items: center; justify-content: space-between;
             will-change: transform, opacity;
             
-            /* 2. 禁止移动端的双击默认放大，防止诡异跳动 */
+            /* 禁止移动端的双击默认放大，防止诡异跳动 */
             touch-action: manipulation;
         }
         
         .mini-player.visible { transform: translateY(0); pointer-events: auto; }
         
-        /* 3. 去掉外壳的 active 状态！不要让它改变透明度和缩放 */
+        /* 去掉外壳的 active 状态！不要让它改变透明度和缩放 */
         
         .mini-player.hidden-in-player { 
             opacity: 0 !important; 
@@ -237,7 +235,6 @@
             transition: none !important; 
         }
         
-        /* 4. 给封皮和内部信息容器加上专属的点击缩小特效 (修改：去掉了封面的 transition 准备) */
         .mini-cover { 
             width: 44px; height: 44px; border-radius: var(--radius-sm); 
             background-size: cover; background-position: center; background-color: #eee; 
@@ -249,7 +246,7 @@
             transform-origin: left center; /* 确保文字向左侧缩放，不乱跑 */
         }
         
-        /* 5. 核心修改：去掉了 .mini-cover。现在只有当你点击迷你播放器时，里面的文字才变小！封面稳如泰山！ */
+        /* 核心修改：当你点击迷你播放器时，里面的文字才变小！外壳和封面稳如泰山！ */
         .mini-player.visible:active .mini-info {
             transform: scale(0.95);
             opacity: 0.7;
@@ -415,8 +412,10 @@
     </div>
 
     <!-- ================= 悬浮迷你播放器 ================= -->
-    <div id="mini-player" class="mini-player clickable" onclick="openPlayer(event)">
+    <!-- 彻底移除外壳的 clickable，防止点击整体缩放 -->
+    <div id="mini-player" class="mini-player" onclick="openPlayer(event)">
         <div class="mini-cover" id="mini-cover" style="background-image: url('');"></div>
+        <!-- 独立的文字区接收缩小特效 -->
         <div class="mini-info">
             <h4 id="mini-title">未播放</h4>
             <p id="mini-artist">-</p>
@@ -504,6 +503,7 @@
         </div>
     </div>
     
+    <!-- 专属的系统确认弹窗 -->
     <div class="overlay" id="confirm-modal-overlay" onclick="closeModals(event)">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h3 id="confirm-modal-title">提示</h3>
@@ -575,6 +575,7 @@
     let playMode = 1; 
     let targetActionId = null; 
     
+    // 长按编辑状态控制
     let isEditMode = false;
     let justEnteredEditMode = false;
     let pressTimer = null;
@@ -608,14 +609,13 @@
 
     // ================= 应用启动初始化 =================
     async function startApp() {
+        // 全局点击取消抖动状态
         dom.pages.home.addEventListener('click', (e) => {
             if(isEditMode && !justEnteredEditMode && !e.target.closest('.card-delete-btn') && !e.target.closest('.playlist-card')) {
                 isEditMode = false;
                 dom.homeGrid.classList.remove('edit-mode');
             }
         });
-        
-        dom.audioPlayer.load();
 
         try {
             await initDB();
@@ -1195,8 +1195,8 @@
         const contentDiv = document.getElementById('lyrics-content');
         contentDiv.innerHTML = '<p style="padding-top:50%;">网络搜索中...</p>';
         try {
-            const cleanTitle = song.title.replace(/[\(\[（【].*?[\)\]）】]/g, '').replace(/-.*/g, '').trim();
-            const cleanArtist = song.artist !== '未知歌手' ? song.artist.replace(/[\(\[（【].*?[\)\]）】]/g, '').trim() : '';
+            const cleanTitle = song.title.replace(/[\(\[].*?[\)\]]/g, '').replace(/-.*/g, '').trim();
+            const cleanArtist = song.artist !== '未知歌手' ? song.artist.replace(/[\(\[].*?[\)\]]/g, '').trim() : '';
             
             let foundLyrics = null;
             
