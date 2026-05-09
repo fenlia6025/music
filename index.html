@@ -3,24 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
-    <!-- ================= 沉浸式 PWA / 桌面图标配置 ================= -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="pmusic">
-    <meta name="theme-color" content="#F4F6F9">
-    <link rel="apple-touch-icon" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='115' fill='%23FF2D55'/%3E%3Cpath d='M352 144c-35.3 0-64 28.7-64 64v144c0 35.3-28.7 64-64 64s-64-28.7-64-64 28.7-64 64-64c11.3 0 22 2.9 32 8V208c0-53 43-96 96-96h16v64h-16z' fill='%23FFF'/%3E%3C/svg%3E">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='115' fill='%23FF2D55'/%3E%3Cpath d='M352 144c-35.3 0-64 28.7-64 64v144c0 35.3-28.7 64-64 64s-64-28.7-64-64 28.7-64 64-64c11.3 0 22 2.9 32 8V208c0-53 43-96 96-96h16v64h-16z' fill='%23FFF'/%3E%3C/svg%3E">
-
     <title>pmusic</title>
     <!-- 解析本地音频 ID3 信息 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
-    <!-- 支持无损格式封面提取 -->
-    <script src="https://cdn.jsdelivr.net/npm/music-metadata-browser@2.5.11/dist/music-metadata-browser.min.js"></script>
-    <!-- 支持移动端拖拽排序 -->
+    <!-- 支持移动端长按拖拽排序 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
-    
     <style>
+        /* ================= 基础变量与重置 ================= */
         :root {
             --bg-main: #F4F6F9;
             --bg-surface: #FFFFFF;
@@ -42,13 +31,11 @@
             font-family: var(--font-family); color: var(--text-main);
             position: fixed; inset: 0; overflow: hidden;
             -webkit-user-select: none; user-select: none; 
-            overscroll-behavior-y: none;
         }
         input { -webkit-user-select: auto; user-select: auto; }
 
         .device-mockup {
             position: absolute; inset: 0;
-            background-color: var(--bg-main);
             overflow: hidden; display: flex; flex-direction: column;
         }
         ::-webkit-scrollbar { display: none; }
@@ -63,13 +50,12 @@
         }
         .page.active { opacity: 1; pointer-events: auto; z-index: 5; }
         
-        .clickable { transition: scale 0.15s ease, opacity 0.15s; cursor: pointer; scale: 1; }
-        .clickable:active { scale: 0.95; opacity: 0.8; }
+        .clickable { transition: transform 0.1s ease, opacity 0.1s; cursor: pointer; }
+        .clickable:active { transform: scale(0.95); opacity: 0.8; }
 
         .header-btn {
-            width: 40px; height: 40px; border-radius: 50%; 
-            background: rgba(0, 0, 0, 0.06); 
-            display: flex; justify-content: center; align-items: center;
+            width: 40px; height: 40px; border-radius: 50%; background: var(--bg-surface);
+            box-shadow: var(--shadow); display: flex; justify-content: center; align-items: center;
             border: none; color: var(--text-main); flex-shrink: 0;
         }
         .header-btn svg { width: 20px; height: 20px; fill: currentColor; }
@@ -100,6 +86,7 @@
             border-radius: var(--radius-sm); margin-bottom: 10px;
             background-size: cover; background-position: center; box-shadow: 0 6px 16px rgba(0,0,0,0.08);
             display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden;
+            background-color: var(--bg-main);
         }
         .cover-box > svg { width: 40px; height: 40px; fill: white; }
         .card-play-btn {
@@ -111,35 +98,25 @@
         .playlist-card h3 { font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
         .playlist-card p { font-size: 11px; color: var(--text-sub); margin: 0; }
 
-        /* 长按编辑模式动画与红X按钮 */
-        @keyframes wiggle {
+        /* --- 补齐的长按抖动与删除 X 按钮 CSS --- */
+        @keyframes shake {
             0% { transform: rotate(-1deg); }
-            50% { transform: rotate(1deg); }
+            50% { transform: rotate(1.5deg); }
             100% { transform: rotate(-1deg); }
         }
-        .playlist-grid.edit-mode .playlist-card {
-            animation: wiggle 0.4s infinite; 
-        }
-        .playlist-grid.edit-mode .card-play-btn {
-            opacity: 0; pointer-events: none;
-        }
+        .playlist-grid.edit-mode .playlist-card { animation: shake 0.3s infinite; }
         .card-delete-btn {
-            position: absolute; top: 50%; left: 50%; width: 44px; height: 44px;
-            background: rgba(255, 45, 85, 0.95); color: white; border-radius: 50%; border: 2px solid var(--bg-surface);
-            display: flex; justify-content: center; align-items: center; z-index: 20;
-            box-shadow: 0 8px 20px rgba(255, 45, 85, 0.3); 
-            opacity: 0; transform: translate(-50%, -50%) scale(0); 
-            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
-            cursor: pointer; pointer-events: none; outline: none;
+            position: absolute; top: -8px; left: -8px; width: 28px; height: 28px;
+            background: var(--accent); border-radius: 50%; display: none; 
+            justify-content: center; align-items: center; border: 2px solid white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 20; padding: 4px; pointer-events: auto;
         }
-        .card-delete-btn::after { content: ''; position: absolute; inset: -20px; }
-        .playlist-grid.edit-mode .card-delete-btn {
-            opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto;
-        }
+        .playlist-grid.edit-mode .card-delete-btn { display: flex; }
+        .playlist-grid.edit-mode .card-play-btn { display: none; }
 
-        /* ================= 2. 歌单内容页 ================= */
+        /* ================= 2. 歌单内容页 (55% 完美比例) ================= */
         .detail-header {
-            height: 46%;
+            height: 55%;
             display: flex; flex-direction: column; 
             background-color: var(--bg-main); 
             flex-shrink: 0; z-index: 10;
@@ -155,15 +132,17 @@
         }
         .detail-info { 
             display: flex; flex-direction: column; align-items: center; gap: 8px; 
-            margin-top: 0px; margin-bottom: 8px; text-align: center; 
+            margin-top: 0px; margin-bottom: 12px; text-align: center; 
             flex: 1; min-height: 0; overflow: hidden;
         }
         .detail-cover {
-            flex: 1; min-height: 0; aspect-ratio: 1; max-height: 320px;
+            flex: 1; min-height: 0; aspect-ratio: 1; max-height: none; 
             border-radius: var(--radius-lg); box-shadow: 0 15px 35px rgba(0,0,0,0.12);
-            background-size: cover; background-position: center; margin-bottom: 12px;
+            background-size: cover; background-position: center;
+            background-color: var(--bg-surface);
         }
         .detail-text { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .detail-text h2 { font-size: 22px; font-weight: 800; margin-bottom: 4px; color: var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
         .detail-text p { font-size: 13px; color: var(--text-sub); }
         
         .btn-action-group { display: flex; gap: 12px; width: 100%; padding: 0 24px 15px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0;}
@@ -175,7 +154,7 @@
         .btn-action.secondary { background: var(--bg-surface); color: var(--text-main); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
 
         .song-list { 
-            height: 54%;
+            height: 45%;
             padding: 10px 20px calc(120px + env(safe-area-inset-bottom)); 
             overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
         }
@@ -202,7 +181,7 @@
         .sortable-ghost { opacity: 0.4; background: #F0F4F8; border: 2px dashed #CBD5E1; }
         .sortable-drag { cursor: grabbing !important; box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important; transform: scale(1.02); z-index: 100;}
 
-        /* ================= 3. 迷你播放器 ================= */
+        /* ================= 3. 迷你播放器 (内部缩放版) ================= */
         .mini-player {
             position: fixed; 
             bottom: calc(20px + env(safe-area-inset-bottom, 10px)); 
@@ -213,45 +192,22 @@
             -webkit-backdrop-filter: blur(15px) saturate(150%); border: 1px solid rgba(0, 0, 0, 0.05);
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             z-index: 99; transform: translateY(250%); 
-            /* 外壳只保留进场/退场的动画，点击时绝不动！ */
             transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s;
             pointer-events: none;
             display: flex; align-items: center; justify-content: space-between;
             will-change: transform, opacity;
-            
-            /* 禁止移动端的双击默认放大，防止诡异跳动 */
             touch-action: manipulation;
         }
-        
         .mini-player.visible { transform: translateY(0); pointer-events: auto; }
-        
-        /* 去掉外壳的 active 状态！不要让它改变透明度和缩放 */
-        
+        .mini-player.visible:active { opacity: 0.6; transition: opacity 0.1s; }
         .mini-player.hidden-in-player { 
-            opacity: 0 !important; 
-            visibility: hidden !important; 
-            pointer-events: none !important; 
-            transform: translateY(0) !important; 
-            transition: none !important; 
+            opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; 
+            transform: translateY(0) !important; transition: none !important; 
         }
         
-        .mini-cover { 
-            width: 44px; height: 44px; border-radius: var(--radius-sm); 
-            background-size: cover; background-position: center; background-color: #eee; 
-            margin-right: 12px; flex-shrink: 0;
-        }
-        .mini-info { 
-            flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; margin-right: 8px;
-            transition: transform 0.1s ease, opacity 0.1s ease; /* 准备缩放 */
-            transform-origin: left center; /* 确保文字向左侧缩放，不乱跑 */
-        }
-        
-        /* 核心修改：当你点击迷你播放器时，里面的文字才变小！外壳和封面稳如泰山！ */
-        .mini-player.visible:active .mini-info {
-            transform: scale(0.95);
-            opacity: 0.7;
-        }
-
+        .mini-cover { width: 44px; height: 44px; border-radius: var(--radius-sm); background-size: cover; background-position: center; background-color: #eee; margin-right: 12px; flex-shrink: 0;}
+        .mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; margin-right: 8px; transition: transform 0.1s ease, opacity 0.1s ease; transform-origin: left center; }
+        .mini-player.visible:active .mini-info { transform: scale(0.95); opacity: 0.7; }
         .mini-info h4 { font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
         .mini-info p { font-size: 12px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .mini-controls { display: flex; gap: 8px; align-items: center; flex-shrink: 0;}
@@ -277,15 +233,16 @@
         .lyrics-view {
             position: absolute; inset: 0; background: transparent;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 24px 0; transition: opacity 0.3s, transform 0.3s; opacity: 1; z-index: 10;
+            padding: 24px 20px; transition: opacity 0.3s, transform 0.3s; opacity: 1; z-index: 10;
         }
         .lyrics-view.hidden { opacity: 0; transform: scale(1.05); pointer-events: none; }
         .lyrics-content {
-            flex: 1; width: 100%; overflow-y: auto; text-align: center; color: var(--text-main); font-size: 18px; line-height: 2.2;
+            flex: 1; width: 100%; text-align: center; color: var(--text-main); font-size: 18px; line-height: 2.2;
             -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
             mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
-            scroll-behavior: smooth;
+            scroll-behavior: smooth; scrollbar-width: none; touch-action: none; overflow-y: hidden; overflow-x: hidden; padding: 0 10px;
         }
+        .lyrics-content::-webkit-scrollbar { display: none; }
         .lyrics-line { transition: color 0.3s, transform 0.3s, opacity 0.3s; padding: 6px 0; opacity: 0.5;}
         .lyrics-line.active { color: var(--accent); font-weight: bold; font-size: 24px; transform: scale(1.05); opacity: 1;}
 
@@ -310,17 +267,10 @@
         .play-pause-btn svg { width: 36px; height: 36px; fill: currentColor; }
 
         /* ================= 模态框 & 底部操作单 ================= */
-        .overlay {
-            position: absolute; inset: 0; 
-            background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 200;
-            display: flex; justify-content: center; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.25s;
-        }
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 200; display: flex; justify-content: center; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
         .overlay.show { opacity: 1; pointer-events: auto; }
         
-        .modal-box {
-            background: var(--bg-surface); width: 80%; padding: 24px; border-radius: var(--radius-md);
-            transform: translateY(20px); transition: transform 0.25s; box-shadow: 0 20px 40px rgba(0,0,0,0.1); margin-bottom: auto; margin-top: auto;
-        }
+        .modal-box { background: var(--bg-surface); width: 80%; padding: 24px; border-radius: var(--radius-md); transform: translateY(20px); transition: transform 0.25s; box-shadow: 0 20px 40px rgba(0,0,0,0.1); margin-bottom: auto; margin-top: auto; }
         .overlay.show .modal-box { transform: translateY(0); }
         .modal-box h3 { margin-bottom: 16px; font-size: 18px; text-align: center; color: var(--text-main);}
         .modal-box input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0; background: #F8FAFC; color: var(--text-main); outline: none; margin-bottom: 20px; font-size: 16px; }
@@ -329,26 +279,16 @@
         .btn-cancel { background: #E2E8F0; color: var(--text-main); }
         .btn-confirm { background: var(--accent); color: white; }
 
-        .action-sheet {
-            background: var(--bg-surface); width: 100%; 
-            padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); 
-            border-radius: 24px 24px 0 0;
-            transform: translateY(100%); transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
-        }
+        .action-sheet { background: var(--bg-surface); width: 100%; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; transform: translateY(100%); transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1); }
         .overlay.show .action-sheet { transform: translateY(0); }
         .sheet-title { font-size: 14px; color: var(--text-sub); margin-bottom: 16px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sheet-btn {
-            width: 100%; padding: 16px; background: none; border: none; font-size: 16px; color: var(--text-main);
-            text-align: left; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #f0f0f0;
-        }
+        .sheet-btn { width: 100%; padding: 16px; background: none; border: none; font-size: 16px; color: var(--text-main); text-align: left; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #f0f0f0; }
         .sheet-btn:last-child { border-bottom: none; }
         .sheet-btn.danger { color: var(--accent); }
         .sheet-btn svg { width: 20px; height: 20px; fill: currentColor; }
         
-        #startup-loader {
-            position: fixed; inset: 0; background: var(--bg-main); z-index: 999;
-            display: flex; justify-content: center; align-items: center; transition: opacity 0.3s;
-        }
+        #confirm-modal-overlay { z-index: 210; }
+        #startup-loader { position: fixed; inset: 0; background: var(--bg-main); z-index: 999; display: flex; justify-content: center; align-items: center; transition: opacity 0.3s; }
     </style>
 </head>
 <body>
@@ -363,7 +303,6 @@
     <input type="file" id="cover-input" accept="image/*" style="display: none;">
     <input type="file" id="lrc-input" accept=".lrc" style="display: none;">
 
-    <!-- ================= 页面 1：主页 ================= -->
     <div id="page-home" class="page active">
         <div class="home-header">
             <h1>音乐库</h1>
@@ -371,12 +310,9 @@
                 <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </button>
         </div>
-        <div class="playlist-grid" id="home-grid">
-            <!-- 渲染歌单 -->
-        </div>
+        <div class="playlist-grid" id="home-grid"></div>
     </div>
 
-    <!-- ================= 页面 2：歌单详情 ================= -->
     <div id="page-detail" class="page">
         <div class="detail-header">
             <div class="detail-top-bar">
@@ -388,105 +324,69 @@
                     <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                 </button>
             </div>
-
             <div class="detail-info">
                 <div class="detail-cover" id="detail-cover" style="background-image: url('');"></div>
-                <div class="detail-text">
-                    <p id="detail-desc">包含 0 首歌曲</p>
-                </div>
+                <div class="detail-text"><p id="detail-desc">包含 0 首歌曲</p></div>
             </div>
-            
             <div class="btn-action-group">
-                <button class="btn-action clickable" onclick="playAllInPlaylist()">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M8 5v14l11-7z"/></svg> 播放
-                </button>
-                <button class="btn-action secondary clickable" id="btn-add-music" onclick="document.getElementById('file-input').click()">
-                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> 导入
-                </button>
+                <button class="btn-action clickable" onclick="playAllInPlaylist()"><svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M8 5v14l11-7z"/></svg> 播放</button>
+                <button class="btn-action secondary clickable" id="btn-add-music" onclick="document.getElementById('file-input').click()"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> 导入</button>
             </div>
         </div>
-        
-        <div class="song-list" id="detail-song-list">
-            <!-- 渲染歌曲 -->
-        </div>
+        <div class="song-list" id="detail-song-list"></div>
     </div>
 
-    <!-- ================= 悬浮迷你播放器 ================= -->
-    <!-- 彻底移除外壳的 clickable，防止点击整体缩放 -->
     <div id="mini-player" class="mini-player" onclick="openPlayer(event)">
         <div class="mini-cover" id="mini-cover" style="background-image: url('');"></div>
-        <!-- 独立的文字区接收缩小特效 -->
         <div class="mini-info">
             <h4 id="mini-title">未播放</h4>
             <p id="mini-artist">-</p>
         </div>
         <div class="mini-controls" onclick="event.stopPropagation()">
-            <button class="mini-btn clickable" onclick="playPrev(event)">
-                <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-            </button>
-            <button class="mini-btn clickable" id="mini-play-btn" onclick="togglePlay()">
-                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            </button>
-            <button class="mini-btn clickable" onclick="playNext(event)">
-                <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-            </button>
+            <button class="mini-btn clickable" onclick="playPrev(event)"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+            <button class="mini-btn clickable" id="mini-play-btn" onclick="togglePlay()"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+            <button class="mini-btn clickable" onclick="playNext(event)"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
         </div>
     </div>
 
-    <!-- ================= 页面 3：全屏播放器 ================= -->
     <div id="page-player" class="page">
         <div class="player-header">
-            <button class="header-btn clickable" onclick="closePlayer()">
-                <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
-            </button>
+            <button class="header-btn clickable" onclick="closePlayer()"><svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></button>
             <span>播放中</span>
-            <button class="header-btn clickable" onclick="openSongSheet(currentSongId, event)">
-                <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-            </button>
+            <button class="header-btn clickable" onclick="openSongSheet(currentSongId, event)"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></button>
         </div>
-
         <div class="player-content">
             <div class="main-cover-wrapper" onclick="toggleLyricsView()">
                 <div class="main-cover" id="player-cover" style="background-image: url('');"></div>
-                
                 <div class="lyrics-view hidden" id="lyrics-view" onclick="event.stopPropagation(); toggleLyricsView();">
-                    <div class="lyrics-content" id="lyrics-content" onclick="event.stopPropagation()">
-                        <p>暂无歌词信息</p>
-                    </div>
+                    <div class="lyrics-content" id="lyrics-content" onclick="event.stopPropagation()"><p>暂无歌词信息</p></div>
                     <div id="lyrics-actions" style="display:flex; gap:16px; margin-top: 15px;">
                         <button class="btn-action secondary clickable" style="padding: 10px 24px; font-size: 14px; border-radius: 30px; width: 120px;" onclick="event.stopPropagation(); searchLyricsAPI()">在线搜词</button>
                         <button class="btn-action secondary clickable" style="padding: 10px 24px; font-size: 14px; border-radius: 30px; width: 120px;" onclick="event.stopPropagation(); document.getElementById('lrc-input').click()">本地导入</button>
                     </div>
                 </div>
             </div>
-
             <div class="player-info-row">
                 <div class="player-texts">
                     <h2 id="player-title">歌曲标题</h2>
                     <p id="player-artist">未知歌手</p>
                 </div>
             </div>
-
             <div class="progress-container clickable" id="progress-container" onclick="seekAudio(event)">
                 <div class="progress-bar-bg"><div class="progress-fill" id="progress-fill"></div></div>
                 <div class="time-row"><span id="time-current">0:00</span><span id="time-total">0:00</span></div>
             </div>
-
             <div class="main-controls">
-                <button class="ctrl-btn clickable" id="btn-play-mode" onclick="togglePlayMode()">
-                    <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
-                </button>
+                <button class="ctrl-btn clickable" id="btn-play-mode" onclick="togglePlayMode()"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>
                 <button class="ctrl-btn clickable" onclick="playPrev(event)"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
                 <button class="play-pause-btn clickable" id="main-play-btn" onclick="togglePlay()"><svg viewBox="0 0 24 24" id="main-play-icon"><path d="M8 5v14l11-7z"/></svg></button>
                 <button class="ctrl-btn clickable" onclick="playNext(event)"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-                <button class="ctrl-btn clickable" onclick="toggleLyricsView()">
-                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-                </button>
+                <button class="ctrl-btn clickable" onclick="toggleLyricsView()"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></button>
             </div>
         </div>
     </div>
 
-    <!-- ================= 模态框与底部菜单 ================= -->
+    <!-- 弹窗 -->
     <div class="overlay" id="input-modal-overlay" onclick="closeModals(event)">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h3 id="modal-title">输入</h3>
@@ -499,11 +399,9 @@
     </div>
 
     <div class="overlay" id="sheet-overlay" onclick="closeModals(event)">
-        <div class="action-sheet" id="action-sheet" onclick="event.stopPropagation()">
-        </div>
+        <div class="action-sheet" id="action-sheet" onclick="event.stopPropagation()"></div>
     </div>
     
-    <!-- 专属的系统确认弹窗 -->
     <div class="overlay" id="confirm-modal-overlay" onclick="closeModals(event)">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h3 id="confirm-modal-title">提示</h3>
@@ -514,11 +412,10 @@
             </div>
         </div>
     </div>
-
 </div>
 
 <script>
-    // ================= IndexedDB 持久化存储 =================
+    // ================= IndexedDB 持久化存储 (回退至最稳定原生版本) =================
     const DB_NAME = 'LocalMusicDB';
     const DB_VERSION = 1;
     let db;
@@ -539,6 +436,7 @@
     function saveSongToDB(song) {
         return new Promise((resolve) => {
             const tx = db.transaction('songs', 'readwrite');
+            // 回归 23:46 最稳定的保存方式，绝不卡死
             const dbSong = { id: song.id, title: song.title, artist: song.artist, audioFile: song.audioFile, coverBlob: song.coverBlob, fallbackCover: song.fallbackCover, lyrics: song.lyrics };
             tx.objectStore('songs').put(dbSong);
             tx.oncomplete = resolve;
@@ -574,8 +472,8 @@
     let currentSongId = null; 
     let playMode = 1; 
     let targetActionId = null; 
-    
-    // 长按编辑状态控制
+
+    // 长按抖动控制变量
     let isEditMode = false;
     let justEnteredEditMode = false;
     let pressTimer = null;
@@ -612,8 +510,7 @@
         // 全局点击取消抖动状态
         dom.pages.home.addEventListener('click', (e) => {
             if(isEditMode && !justEnteredEditMode && !e.target.closest('.card-delete-btn') && !e.target.closest('.playlist-card')) {
-                isEditMode = false;
-                dom.homeGrid.classList.remove('edit-mode');
+                isEditMode = false; dom.homeGrid.classList.remove('edit-mode');
             }
         });
 
@@ -623,17 +520,15 @@
             
             if(data.playlists && data.playlists.length > 0) {
                 playlists = data.playlists.filter(p => !p.isSystem && p.id !== 'sys_liked'); 
-            } else {
-                playlists = []; 
-            }
+            } else { playlists = []; }
 
             data.songs.forEach(dbSong => {
                 dbSong.url = URL.createObjectURL(dbSong.audioFile);
                 dbSong.coverUrl = dbSong.coverBlob ? URL.createObjectURL(dbSong.coverBlob) : null;
                 allSongs.set(dbSong.id, dbSong);
             });
-
         } catch (e) {
+            console.error("启动失败，使用空状态", e);
             playlists = [];
         }
         
@@ -645,44 +540,30 @@
         setTimeout(() => loader.style.display = 'none', 300);
     }
 
-    // ================= 动画与视图 (无 ViewTransition 版本) =================
     function safeTransition(targetPageId, callback) {
         if(callback) callback();
-        
         Object.values(dom.pages).forEach(p => p.classList.remove('active'));
         dom.pages[targetPageId].classList.add('active');
-        
-        if (targetPageId === 'player') {
-            dom.miniPlayer.classList.add('hidden-in-player');
-        } else {
-            dom.miniPlayer.classList.remove('hidden-in-player');
-        }
+        if (targetPageId === 'player') { dom.miniPlayer.classList.add('hidden-in-player'); } 
+        else { dom.miniPlayer.classList.remove('hidden-in-player'); }
     }
 
     // ================= 弹窗与编辑菜单 =================
     function openInputModal(title, defaultValue, confirmCallback) {
-        document.getElementById('modal-title').innerText = title;
-        dom.modalInput.value = defaultValue;
-        dom.inputModal.classList.add('show');
-        dom.modalInput.focus();
+        document.getElementById('modal-title').innerText = title; dom.modalInput.value = defaultValue;
+        dom.inputModal.classList.add('show'); dom.modalInput.focus();
         document.getElementById('modal-confirm-btn').onclick = () => { confirmCallback(dom.modalInput.value.trim()); };
     }
 
     function closeModals(e) {
         if(e && e.target !== dom.inputModal && e.target !== dom.sheetOverlay && e.target !== dom.confirmModal) return;
-        dom.inputModal.classList.remove('show');
-        dom.sheetOverlay.classList.remove('show');
-        dom.confirmModal.classList.remove('show');
+        dom.inputModal.classList.remove('show'); dom.sheetOverlay.classList.remove('show'); dom.confirmModal.classList.remove('show');
     }
     
     function openConfirmModal(title, text, confirmCallback) {
-        document.getElementById('confirm-modal-title').innerText = title;
-        document.getElementById('confirm-modal-text').innerText = text;
+        document.getElementById('confirm-modal-title').innerText = title; document.getElementById('confirm-modal-text').innerText = text;
         dom.confirmModal.classList.add('show');
-        document.getElementById('confirm-modal-yes-btn').onclick = () => {
-            closeModals();
-            confirmCallback();
-        };
+        document.getElementById('confirm-modal-yes-btn').onclick = () => { closeModals(); confirmCallback(); };
     }
 
     function openPlaylistSheet() {
@@ -701,9 +582,7 @@
 
     function openSongSheet(songId, event) {
         if(event) { event.preventDefault(); event.stopPropagation(); }
-        targetActionId = songId;
-        const song = allSongs.get(songId);
-        if(!song) return;
+        targetActionId = songId; const song = allSongs.get(songId); if(!song) return;
         dom.actionSheet.innerHTML = `
             <div class="sheet-title">歌曲: ${song.title}</div>
             <button class="sheet-btn clickable" onclick="dom.sheetOverlay.classList.remove('show'); openInputModal('重命名歌曲', '${song.title}', renameSong)">
@@ -723,66 +602,49 @@
     function createNewPlaylist(name) {
         if (!name) return alert('名称不能为空');
         playlists.push({ id: 'pl_' + Date.now(), title: name, cover: generateGradient(), songs: [] });
-        savePlaylistsToDB();
-        closeModals(); renderHomePlaylists();
+        savePlaylistsToDB(); closeModals(); renderHomePlaylists();
     }
 
     function renamePlaylist(name) {
         if (!name) return alert('名称不能为空');
         const pl = playlists.find(p => p.id === targetActionId);
-        if(pl) { 
-            pl.title = name; 
-            document.getElementById('detail-title-text').innerText = name;
-            document.getElementById('detail-top-title').innerText = name;
-            savePlaylistsToDB();
-        }
+        if(pl) { pl.title = name; document.getElementById('detail-top-title').innerText = name; savePlaylistsToDB(); }
         closeModals(); renderHomePlaylists();
-    }
-    
-    let lastDeleteTime = 0;
-    function deletePlaylistById(id, event) {
-        if(event) { event.preventDefault(); event.stopPropagation(); }
-        if(Date.now() - lastDeleteTime < 500) return;
-        lastDeleteTime = Date.now();
-
-        openConfirmModal('删除歌单', '确定要彻底删除此歌单吗？', () => {
-            playlists = playlists.filter(p => p.id !== id);
-            savePlaylistsToDB();
-            
-            isEditMode = false;
-            dom.homeGrid.classList.remove('edit-mode');
-            
-            renderHomePlaylists();
-        });
     }
 
     function deletePlaylist() {
         openConfirmModal('删除歌单', '确定要彻底删除此歌单吗？', () => {
             playlists = playlists.filter(p => p.id !== targetActionId);
-            savePlaylistsToDB();
-            
-            currentPlaylist = null; 
-            renderHomePlaylists();
-            navigate('home');
+            savePlaylistsToDB(); playlistCoverCache.delete(targetActionId); 
+            currentPlaylist = null; renderHomePlaylists(); navigate('home');
         });
     }
 
+    // 红叉删除逻辑
+    let lastDeleteTime = 0;
+    function deletePlaylistById(id, event) {
+        if(event) { event.preventDefault(); event.stopPropagation(); }
+        if(Date.now() - lastDeleteTime < 500) return;
+        lastDeleteTime = Date.now();
+        openConfirmModal('删除歌单', '确定要彻底删除此歌单吗？', () => {
+            playlists = playlists.filter(p => p.id !== id); savePlaylistsToDB();
+            isEditMode = false; dom.homeGrid.classList.remove('edit-mode'); renderHomePlaylists();
+        });
+    }
+
+    const playlistCoverCache = new Map();
     function getPlaylistDisplayCover(playlist) {
+        if (playlistCoverCache.has(playlist.id)) return playlistCoverCache.get(playlist.id);
         const songsWithCover = playlist.songs.map(id => allSongs.get(id)).filter(s => s && s.coverUrl);
-        if (songsWithCover.length > 0) return `url('${songsWithCover[Math.floor(Math.random() * songsWithCover.length)].coverUrl}')`;
-        return playlist.cover;
+        let coverToUse = playlist.cover || generateGradient(); 
+        if (songsWithCover.length > 0) coverToUse = `url('${songsWithCover[Math.floor(Math.random() * songsWithCover.length)].coverUrl}')`;
+        playlistCoverCache.set(playlist.id, coverToUse);
+        return coverToUse;
     }
 
     function renderHomePlaylists() {
-        if(window.homeSortable) {
-            try { window.homeSortable.destroy(); } catch(e) {}
-            window.homeSortable = null;
-        }
-
-        if(playlists.length === 0) {
-            dom.homeGrid.innerHTML = `<div class="empty-state" style="grid-column: span 2; margin-top: 50px;">暂无歌单，请点击右上角 + 创建</div>`;
-            return;
-        }
+        if(window.homeSortable) { try { window.homeSortable.destroy(); } catch(e) {} window.homeSortable = null; }
+        if(playlists.length === 0) { dom.homeGrid.innerHTML = `<div class="empty-state" style="grid-column: span 2; margin-top: 50px;">暂无歌单，请点击右上角 + 创建</div>`; return; }
 
         dom.homeGrid.innerHTML = playlists.map(p => {
             return `
@@ -791,12 +653,9 @@
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                 </button>
                 <div class="cover-box" style="background-image: ${getPlaylistDisplayCover(p)};" id="card-cover-${p.id}">
-                    <button class="card-play-btn" onclick="quickPlayPlaylist('${p.id}', event)">
-                        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    </button>
+                    <button class="card-play-btn" onclick="quickPlayPlaylist('${p.id}', event)"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
                 </div>
-                <h3>${p.title}</h3>
-                <p>${p.songs.length} 首</p>
+                <h3>${p.title}</h3><p>${p.songs.length} 首</p>
             </div>`;
         }).join('');
 
@@ -805,26 +664,18 @@
             const startPress = () => {
                 if (isEditMode) return;
                 pressTimer = setTimeout(() => {
-                    isEditMode = true;
-                    justEnteredEditMode = true;
+                    isEditMode = true; justEnteredEditMode = true;
                     dom.homeGrid.classList.add('edit-mode');
                     if(navigator.vibrate) navigator.vibrate(50);
                 }, 500); 
             };
             const clearPress = () => { 
                 if(pressTimer) clearTimeout(pressTimer); 
-                if(justEnteredEditMode) {
-                    setTimeout(() => justEnteredEditMode = false, 500);
-                }
+                if(justEnteredEditMode) setTimeout(() => justEnteredEditMode = false, 500);
             };
-            
-            card.addEventListener('touchstart', startPress, {passive: true});
-            card.addEventListener('touchend', clearPress);
-            card.addEventListener('touchcancel', clearPress);
-            card.addEventListener('touchmove', () => { if(pressTimer) clearTimeout(pressTimer); }, {passive: true});
-            card.addEventListener('mousedown', startPress);
-            card.addEventListener('mouseup', clearPress);
-            card.addEventListener('mouseleave', clearPress);
+            card.addEventListener('touchstart', startPress, {passive: true}); card.addEventListener('touchend', clearPress);
+            card.addEventListener('touchcancel', clearPress); card.addEventListener('touchmove', () => { if(pressTimer) clearTimeout(pressTimer); }, {passive: true});
+            card.addEventListener('mousedown', startPress); card.addEventListener('mouseup', clearPress); card.addEventListener('mouseleave', clearPress);
         });
 
         window.homeSortable = new Sortable(dom.homeGrid, {
@@ -833,26 +684,19 @@
             onEnd: function(evt) {
                 if(evt.oldIndex === evt.newIndex) return;
                 const movedId = playlists.splice(evt.oldIndex, 1)[0];
-                playlists.splice(evt.newIndex, 0, movedId);
-                savePlaylistsToDB();
+                playlists.splice(evt.newIndex, 0, movedId); savePlaylistsToDB();
             }
         });
     }
 
     function openPlaylist(id, event) {
-        if(justEnteredEditMode) {
-            if(event) { event.preventDefault(); event.stopPropagation(); }
-            return;
-        }
+        if(justEnteredEditMode) { if(event) { event.preventDefault(); event.stopPropagation(); } return; }
         if(isEditMode) {
             if(event) { event.preventDefault(); event.stopPropagation(); }
-            isEditMode = false;
-            dom.homeGrid.classList.remove('edit-mode');
-            return;
+            isEditMode = false; dom.homeGrid.classList.remove('edit-mode'); return;
         }
 
         currentPlaylist = playlists.find(p => p.id === id);
-        
         safeTransition('detail', () => {
             document.getElementById('detail-cover').style.backgroundImage = getPlaylistDisplayCover(currentPlaylist);
             document.getElementById('detail-top-title').innerText = currentPlaylist.title;
@@ -882,7 +726,7 @@
         if(s) {
             s.coverBlob = e.target.files[0];
             s.coverUrl = URL.createObjectURL(s.coverBlob);
-            saveSongToDB(s);
+            saveSongToDB(s); playlistCoverCache.clear(); 
             renderSongList(); renderHomePlaylists(); updatePlayerUI();
             if(currentPlaylist) document.getElementById('detail-cover').style.backgroundImage = getPlaylistDisplayCover(currentPlaylist);
         }
@@ -891,15 +735,10 @@
 
     function deleteSong() {
         if(!currentPlaylist) return;
-        currentPlaylist.songs = currentPlaylist.songs.filter(id => id !== targetActionId);
-        savePlaylistsToDB();
-        
-        let isUsedElsewhere = false;
-        playlists.forEach(pl => { if(pl.songs.includes(targetActionId)) isUsedElsewhere = true; });
-        if(!isUsedElsewhere) {
-            allSongs.delete(targetActionId);
-            deleteSongFromDB(targetActionId);
-        }
+        currentPlaylist.songs = currentPlaylist.songs.filter(id => id !== targetActionId); savePlaylistsToDB();
+        let isUsedElsewhere = false; playlists.forEach(pl => { if(pl.songs.includes(targetActionId)) isUsedElsewhere = true; });
+        if(!isUsedElsewhere) { allSongs.delete(targetActionId); deleteSongFromDB(targetActionId); }
+        playlistCoverCache.clear(); 
 
         if(currentSongId === targetActionId) {
             dom.audioPlayer.pause();
@@ -910,32 +749,19 @@
     }
 
     function renderSongList() {
-        if(window.playlistSortable) {
-            try { window.playlistSortable.destroy(); } catch(e) {}
-            window.playlistSortable = null;
-        }
-
-        if (currentPlaylist.songs.length === 0) {
-            dom.songList.innerHTML = `<div class="empty-state">暂无歌曲</div>`;
-            return;
-        }
+        if(window.playlistSortable) { try { window.playlistSortable.destroy(); } catch(e) {} window.playlistSortable = null; }
+        if (currentPlaylist.songs.length === 0) { dom.songList.innerHTML = `<div class="empty-state">暂无歌曲</div>`; return; }
+        
         dom.songList.innerHTML = currentPlaylist.songs.map((songId) => {
-            const s = allSongs.get(songId);
-            if (!s) return '';
+            const s = allSongs.get(songId); if (!s) return '';
             const isPlaying = s.id === currentSongId;
             const coverStyle = s.coverUrl ? `background-image: url('${s.coverUrl}')` : `background-image: ${s.fallbackCover}`;
-            
             return `
             <div class="song-item clickable ${isPlaying ? 'playing' : ''}" onclick="playSong('${s.id}')">
                 <div class="song-cover" style="${coverStyle}"></div>
-                <div class="song-info">
-                    <h4>${s.title}</h4><p>${s.artist}</p>
-                </div>
-                
+                <div class="song-info"><h4>${s.title}</h4><p>${s.artist}</p></div>
                 <div class="more-wrapper" onclick="openSongSheet('${s.id}', event)">
-                    <button class="btn-icon">
-                        <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-                    </button>
+                    <button class="btn-icon"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></button>
                 </div>
             </div>`;
         }).join('');
@@ -946,23 +772,19 @@
             onEnd: function(evt) {
                 if(evt.oldIndex === evt.newIndex) return;
                 const movedId = currentPlaylist.songs.splice(evt.oldIndex, 1)[0];
-                currentPlaylist.songs.splice(evt.newIndex, 0, movedId);
-                savePlaylistsToDB();
+                currentPlaylist.songs.splice(evt.newIndex, 0, movedId); savePlaylistsToDB();
             }
         });
     }
 
-    // ================= 文件解析导入 =================
+    // ================= 极速安全文件解析导入 (23:46 最稳定代码) =================
     dom.fileInput.addEventListener('change', async function(e) {
-        const files = e.target.files;
-        if (files.length === 0 || !currentPlaylist) return;
-        
+        const files = e.target.files; if (files.length === 0 || !currentPlaylist) return;
         for (let i = 0; i < files.length; i++) {
             document.getElementById('detail-desc').innerText = `读取中... (${i+1}/${files.length})`;
             await processFile(files[i], currentPlaylist);
         }
-        
-        savePlaylistsToDB();
+        savePlaylistsToDB(); playlistCoverCache.clear(); 
         document.getElementById('detail-desc').innerText = `包含 ${currentPlaylist.songs.length} 首歌曲`;
         renderSongList(); renderHomePlaylists(); dom.fileInput.value = '';
         document.getElementById('detail-cover').style.backgroundImage = getPlaylistDisplayCover(currentPlaylist);
@@ -971,77 +793,42 @@
     function processFile(file, playlist) {
         return new Promise((resolve) => {
             const songId = 'song_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-            
             let baseName = file.name.replace(/\.[^/.]+$/, "").trim();
-            let assumedTitle = baseName;
-            let assumedArtist = '未知歌手';
-            if(baseName.includes('-')) {
-                const parts = baseName.split('-');
-                if(parts.length >= 2) {
-                    assumedArtist = parts[0].trim();
-                    assumedTitle = parts.slice(1).join('-').trim();
-                }
-            }
+            let assumedTitle = baseName; let assumedArtist = '未知歌手';
+            if(baseName.includes('-')) { const parts = baseName.split('-'); if(parts.length >= 2) { assumedArtist = parts[0].trim(); assumedTitle = parts.slice(1).join('-').trim(); } }
 
             const songData = { id: songId, title: assumedTitle, artist: assumedArtist, audioFile: file, coverBlob: null, fallbackCover: generateGradient(), lyrics: null };
 
             const finishSave = async () => {
                 songData.url = URL.createObjectURL(songData.audioFile);
                 if (songData.coverBlob) songData.coverUrl = URL.createObjectURL(songData.coverBlob);
-                
-                allSongs.set(songId, songData); 
-                playlist.songs.push(songId); 
-                
+                allSongs.set(songId, songData); playlist.songs.push(songId); 
                 renderSongList();
-                
-                await saveSongToDB(songData);
+                await saveSongToDB(songData); 
                 resolve();
             }
 
-            const parseWithJsMediaTags = () => {
-                if (window.jsmediatags) {
-                    let isResolved = false;
-                    const fallbackTimeout = setTimeout(() => {
-                        if(!isResolved) { isResolved = true; finishSave(); }
-                    }, 1000);
+            if (window.jsmediatags) {
+                let isResolved = false;
+                const fallbackTimeout = setTimeout(() => {
+                    if(!isResolved) { isResolved = true; finishSave(); }
+                }, 1000);
 
-                    try {
-                        window.jsmediatags.read(file, {
-                            onSuccess: function(tag) {
-                                if(isResolved) return;
-                                isResolved = true; clearTimeout(fallbackTimeout);
-                                if (tag.tags.title && tag.tags.title.trim() !== '') songData.title = tag.tags.title;
-                                if (tag.tags.artist && tag.tags.artist.trim() !== '') songData.artist = tag.tags.artist;
-                                if (tag.tags.picture) {
-                                    try { songData.coverBlob = new Blob([new Uint8Array(tag.tags.picture.data)], { type: tag.tags.picture.format }); } catch(err) {}
-                                }
-                                finishSave();
-                            },
-                            onError: function() { 
-                                if(!isResolved) { isResolved = true; clearTimeout(fallbackTimeout); finishSave(); }
+                try {
+                    window.jsmediatags.read(file, {
+                        onSuccess: function(tag) {
+                            if(isResolved) return; isResolved = true; clearTimeout(fallbackTimeout);
+                            if (tag.tags.title && tag.tags.title.trim() !== '') songData.title = tag.tags.title;
+                            if (tag.tags.artist && tag.tags.artist.trim() !== '') songData.artist = tag.tags.artist;
+                            if (tag.tags.picture) {
+                                try { songData.coverBlob = new Blob([new Uint8Array(tag.tags.picture.data)], { type: tag.tags.picture.format }); } catch(err) {}
                             }
-                        });
-                    } catch(e) { 
-                        if(!isResolved) { isResolved = true; clearTimeout(fallbackTimeout); finishSave(); }
-                    }
-                } else { finishSave(); }
-            };
-
-            if (window.musicMetadata) {
-                window.musicMetadata.parseBlob(file).then(metadata => {
-                    if (metadata.common.title && metadata.common.title.trim() !== '') songData.title = metadata.common.title;
-                    if (metadata.common.artist && metadata.common.artist.trim() !== '') songData.artist = metadata.common.artist;
-                    if (metadata.common.picture && metadata.common.picture.length > 0) {
-                        const picture = metadata.common.picture[0];
-                        songData.coverBlob = new Blob([picture.data], { type: picture.format });
-                    }
-                    finishSave();
-                }).catch(err => {
-                    parseWithJsMediaTags();
-                });
-            } else {
-                parseWithJsMediaTags();
-            }
+                            finishSave();
+                        },
+                        onError: function() { if(!isResolved) { isResolved = true; clearTimeout(fallbackTimeout); finishSave(); } }
+                    });
+                } catch(e) { if(!isResolved) { isResolved = true; clearTimeout(fallbackTimeout); finishSave(); } }
+            } else { finishSave(); }
         });
     }
 
@@ -1053,17 +840,13 @@
         `<path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>` 
     ];
 
-    function togglePlayMode() {
-        playMode = (playMode + 1) % 4;
-        document.querySelector('#btn-play-mode svg').innerHTML = modeIcons[playMode];
-    }
+    function togglePlayMode() { playMode = (playMode + 1) % 4; document.querySelector('#btn-play-mode svg').innerHTML = modeIcons[playMode]; }
 
     function getNextSongId(isForward = true) {
         if(!currentPlaylist || currentPlaylist.songs.length === 0) return null;
         const currentIndex = currentPlaylist.songs.indexOf(currentSongId);
         if(playMode === 2) return currentSongId; 
         if(playMode === 3) return currentPlaylist.songs[Math.floor(Math.random() * currentPlaylist.songs.length)]; 
-        
         let nextIndex = isForward ? currentIndex + 1 : currentIndex - 1;
         if (nextIndex >= currentPlaylist.songs.length) return playMode === 0 ? null : currentPlaylist.songs[0];
         if (nextIndex < 0) return playMode === 0 ? null : currentPlaylist.songs[currentPlaylist.songs.length - 1];
@@ -1075,30 +858,22 @@
         if (currentSongId === songId && dom.audioPlayer.src) {
             dom.audioPlayer.currentTime = 0; 
             const playPromise = dom.audioPlayer.play();
-            if (playPromise !== undefined) {
-                playPromise.then(() => syncPlayIcon(true)).catch(e => { console.error(e); syncPlayIcon(false); });
-            }
+            if (playPromise !== undefined) { playPromise.then(() => syncPlayIcon(true)).catch(e => { console.error(e); syncPlayIcon(false); }); }
             return;
         }
-        const song = allSongs.get(songId);
-        if (!song) return;
+        const song = allSongs.get(songId); if (!song) return;
         currentSongId = songId; dom.audioPlayer.src = song.url;
         updatePlayerUI(); renderSongList(); dom.miniPlayer.classList.add('visible');
         if(isLyricsVisible) renderLyricsDisplay(); 
-        
         const playPromise = dom.audioPlayer.play();
-        if (playPromise !== undefined) {
-            playPromise.then(() => syncPlayIcon(true)).catch(e => { console.error("自动播放错误:", e); syncPlayIcon(false); });
-        }
+        if (playPromise !== undefined) { playPromise.then(() => syncPlayIcon(true)).catch(e => { console.error("自动播放错误:", e); syncPlayIcon(false); }); }
     }
 
     function togglePlay() {
         if (!currentSongId || !dom.audioPlayer.src) return;
         if (dom.audioPlayer.paused) { 
             const playPromise = dom.audioPlayer.play();
-            if(playPromise !== undefined) {
-                playPromise.then(() => syncPlayIcon(true)).catch(()=>syncPlayIcon(false)); 
-            }
+            if(playPromise !== undefined) { playPromise.then(() => syncPlayIcon(true)).catch(()=>syncPlayIcon(false)); }
         } 
         else { dom.audioPlayer.pause(); syncPlayIcon(false); }
     }
@@ -1107,46 +882,28 @@
 
     function syncPlayIcon(isPlaying) {
         const iconPath = isPlaying ? pauseIcon : playIcon;
-        document.querySelector('#mini-play-btn svg').innerHTML = iconPath;
-        document.querySelector('#main-play-btn svg').innerHTML = iconPath;
+        document.querySelector('#mini-play-btn svg').innerHTML = iconPath; document.querySelector('#main-play-btn svg').innerHTML = iconPath;
     }
 
     dom.audioPlayer.addEventListener('ended', playNext);
 
     // ================= 歌词页与 LRC 解析逻辑 =================
-    let isLyricsVisible = false;
-    let parsedLyrics = [];
+    let isLyricsVisible = false; let parsedLyrics = [];
 
     function toggleLyricsView() {
-        isLyricsVisible = !isLyricsVisible;
-        const cover = document.getElementById('player-cover');
-        const lyrics = document.getElementById('lyrics-view');
-        if(isLyricsVisible) {
-            cover.classList.add('hidden');
-            lyrics.classList.remove('hidden');
-            renderLyricsDisplay();
-        } else {
-            cover.classList.remove('hidden');
-            lyrics.classList.add('hidden');
-        }
+        isLyricsVisible = !isLyricsVisible; const cover = document.getElementById('player-cover'); const lyrics = document.getElementById('lyrics-view');
+        if(isLyricsVisible) { cover.classList.add('hidden'); lyrics.classList.remove('hidden'); renderLyricsDisplay(); } 
+        else { cover.classList.remove('hidden'); lyrics.classList.add('hidden'); }
     }
 
     function parseLRC(lrcText) {
-        const lines = lrcText.split('\n');
-        const result = [];
-        const timeReg = /\[(\d{2,}):(\d{2})(?:\.(\d{1,3}))?\]/;
+        const lines = lrcText.split('\n'); const result = []; const timeReg = /\[(\d{2,}):(\d{2})(?:\.(\d{1,3}))?\]/;
         for (let line of lines) {
             const match = timeReg.exec(line);
             if (match) {
-                const min = parseInt(match[1]);
-                const sec = parseInt(match[2]);
-                const msStr = match[3] || '0';
-                let ms = parseInt(msStr);
-                if (msStr.length === 1) ms *= 100;
-                else if (msStr.length === 2) ms *= 10;
-                
-                const time = min * 60 + sec + ms / 1000;
-                const text = line.replace(timeReg, '').trim();
+                const min = parseInt(match[1]); const sec = parseInt(match[2]); const msStr = match[3] || '0'; let ms = parseInt(msStr);
+                if (msStr.length === 1) ms *= 100; else if (msStr.length === 2) ms *= 10;
+                const time = min * 60 + sec + ms / 1000; const text = line.replace(timeReg, '').trim();
                 if(text) result.push({ time, text });
             }
         }
@@ -1154,118 +911,70 @@
     }
 
     function renderLyricsDisplay() {
-        const song = allSongs.get(currentSongId);
-        const contentDiv = document.getElementById('lyrics-content');
-        const actionsDiv = document.getElementById('lyrics-actions');
+        const song = allSongs.get(currentSongId); const contentDiv = document.getElementById('lyrics-content'); const actionsDiv = document.getElementById('lyrics-actions');
         parsedLyrics = [];
-        
-        if(!song || !song.lyrics) {
-            contentDiv.innerHTML = '<p style="padding-top:50%;">暂无歌词信息</p>';
-            actionsDiv.style.display = 'flex'; 
-            return;
-        }
-        
-        actionsDiv.style.display = 'none'; 
-        parsedLyrics = parseLRC(song.lyrics);
+        if(!song || !song.lyrics) { contentDiv.innerHTML = '<p style="padding-top:50%;">暂无歌词信息</p>'; actionsDiv.style.display = 'flex'; return; }
+        actionsDiv.style.display = 'none'; parsedLyrics = parseLRC(song.lyrics);
         if(parsedLyrics.length > 0) {
             contentDiv.innerHTML = parsedLyrics.map((l, i) => `<div class="lyrics-line" id="lrc-line-${i}">${l.text}</div>`).join('');
             contentDiv.innerHTML += '<div style="height: 50vh;"></div>'; 
-        } else {
-            contentDiv.innerHTML = song.lyrics.split('\n').map(l => `<div class="lyrics-line">${l}</div>`).join('');
-        }
+        } else { contentDiv.innerHTML = song.lyrics.split('\n').map(l => `<div class="lyrics-line">${l}</div>`).join(''); }
     }
 
     dom.lrcInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if(!file || !currentSongId) return;
+        const file = e.target.files[0]; if(!file || !currentSongId) return;
         const reader = new FileReader();
         reader.onload = function(e) {
-            const song = allSongs.get(currentSongId);
-            song.lyrics = e.target.result;
-            saveSongToDB(song);
+            const song = allSongs.get(currentSongId); song.lyrics = e.target.result; saveSongToDB(song);
             if(isLyricsVisible) renderLyricsDisplay();
         };
-        reader.readAsText(file);
-        dom.lrcInput.value = '';
+        reader.readAsText(file); dom.lrcInput.value = '';
     });
 
     async function searchLyricsAPI() {
-        if(!currentSongId) return;
-        const song = allSongs.get(currentSongId);
-        const contentDiv = document.getElementById('lyrics-content');
+        if(!currentSongId) return; const song = allSongs.get(currentSongId); const contentDiv = document.getElementById('lyrics-content');
         contentDiv.innerHTML = '<p style="padding-top:50%;">网络搜索中...</p>';
         try {
             const cleanTitle = song.title.replace(/[\(\[].*?[\)\]]/g, '').replace(/-.*/g, '').trim();
             const cleanArtist = song.artist !== '未知歌手' ? song.artist.replace(/[\(\[].*?[\)\]]/g, '').trim() : '';
-            
             let foundLyrics = null;
-            
             const fetchLrcLib = async (query) => {
                 if(!query) return null;
                 try {
                     const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`);
-                    if(res.ok) {
-                        const data = await res.json();
-                        if(data && data.length > 0) {
-                            const bestMatch = data.find(item => item.syncedLyrics) || data[0];
-                            return bestMatch.syncedLyrics || bestMatch.plainLyrics;
-                        }
-                    }
-                } catch(e) {}
-                return null;
+                    if(res.ok) { const data = await res.json(); if(data && data.length > 0) { const bestMatch = data.find(item => item.syncedLyrics) || data[0]; return bestMatch.syncedLyrics || bestMatch.plainLyrics; } }
+                } catch(e) {} return null;
             };
 
-            if(cleanArtist) {
-                foundLyrics = await fetchLrcLib(`${cleanTitle} ${cleanArtist}`);
-            }
-            
-            if(!foundLyrics) {
-                foundLyrics = await fetchLrcLib(cleanTitle);
-            }
-
+            if(cleanArtist) { foundLyrics = await fetchLrcLib(`${cleanTitle} ${cleanArtist}`); }
+            if(!foundLyrics) { foundLyrics = await fetchLrcLib(cleanTitle); }
             if (!foundLyrics && cleanArtist) {
                 try {
                     const ovhRes = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`);
-                    if(ovhRes.ok) {
-                        const data = await ovhRes.json();
-                        if(data.lyrics) foundLyrics = data.lyrics;
-                    }
+                    if(ovhRes.ok) { const data = await ovhRes.json(); if(data.lyrics) foundLyrics = data.lyrics; }
                 } catch(e) {}
             }
 
-            if (foundLyrics) {
-                song.lyrics = foundLyrics;
-                saveSongToDB(song); 
-                renderLyricsDisplay();
-                return;
-            }
+            if (foundLyrics) { song.lyrics = foundLyrics; saveSongToDB(song); renderLyricsDisplay(); return; }
             throw new Error('Not found');
-        } catch(e) {
-            contentDiv.innerHTML = '<p style="padding-top:30%; color:var(--text-sub);">线上接口未能找到对应歌词<br><br>建议：<br>1. 尝试在"歌曲编辑"中将歌名修改为纯净的名称（去掉特殊符号）<br>2. 点击下方"本地导入"选择 .lrc 文件</p>';
-        }
+        } catch(e) { contentDiv.innerHTML = '<p style="padding-top:30%; color:var(--text-sub);">线上接口未能找到对应歌词<br><br>建议：<br>1. 尝试在"歌曲编辑"中将歌名修改为纯净的名称（去掉特殊符号）<br>2. 点击下方"本地导入"选择 .lrc 文件</p>'; }
     }
 
     // ================= 进度条与更新 =================
     function formatTime(s) { if (isNaN(s)) return "0:00"; const m = Math.floor(s/60); const sec = Math.floor(s%60); return `${m}:${sec<10?'0'+sec:sec}`; }
     
     dom.audioPlayer.addEventListener('timeupdate', () => {
-        const currentTime = dom.audioPlayer.currentTime;
-        dom.timeCurrent.innerText = formatTime(currentTime);
+        const currentTime = dom.audioPlayer.currentTime; dom.timeCurrent.innerText = formatTime(currentTime);
         if (dom.audioPlayer.duration) dom.progressFill.style.width = `${(currentTime/dom.audioPlayer.duration)*100}%`;
         
         if (isLyricsVisible && parsedLyrics.length > 0) {
             let activeIndex = -1;
-            for(let i=0; i<parsedLyrics.length; i++) {
-                if(currentTime >= parsedLyrics[i].time) activeIndex = i;
-                else break;
-            }
+            for(let i=0; i<parsedLyrics.length; i++) { if(currentTime >= parsedLyrics[i].time) activeIndex = i; else break; }
             if(activeIndex !== -1) {
-                const lines = document.querySelectorAll('.lyrics-line');
-                lines.forEach(l => l.classList.remove('active'));
+                const lines = document.querySelectorAll('.lyrics-line'); lines.forEach(l => l.classList.remove('active'));
                 const activeLine = document.getElementById(`lrc-line-${activeIndex}`);
                 if(activeLine && !activeLine.classList.contains('active')) {
-                    activeLine.classList.add('active');
-                    const contentDiv = document.getElementById('lyrics-content');
+                    activeLine.classList.add('active'); const contentDiv = document.getElementById('lyrics-content');
                     contentDiv.scrollTo({ top: activeLine.offsetTop - contentDiv.clientHeight / 2 + 20, behavior: 'smooth' });
                 }
             }
@@ -1275,34 +984,23 @@
     dom.audioPlayer.addEventListener('loadedmetadata', () => { dom.timeTotal.innerText = formatTime(dom.audioPlayer.duration); });
     
     function seekAudio(e) {
-        if (!dom.audioPlayer.duration) return;
-        const rect = document.getElementById('progress-container').getBoundingClientRect();
+        if (!dom.audioPlayer.duration) return; const rect = document.getElementById('progress-container').getBoundingClientRect();
         dom.audioPlayer.currentTime = (e.clientX - rect.left) / rect.width * dom.audioPlayer.duration;
     }
 
     function updatePlayerUI() {
-        if (!currentSongId) return;
-        const song = allSongs.get(currentSongId);
-        if(!song) return;
+        if (!currentSongId) return; const song = allSongs.get(currentSongId); if(!song) return;
         const coverSrc = song.coverUrl ? `url('${song.coverUrl}')` : song.fallbackCover;
-        document.getElementById('mini-cover').style.backgroundImage = coverSrc;
-        document.getElementById('mini-title').innerText = song.title;
-        document.getElementById('mini-artist').innerText = song.artist;
-        document.getElementById('player-cover').style.backgroundImage = coverSrc;
-        document.getElementById('player-title').innerText = song.title;
-        document.getElementById('player-artist').innerText = song.artist;
+        document.getElementById('mini-cover').style.backgroundImage = coverSrc; document.getElementById('mini-title').innerText = song.title; document.getElementById('mini-artist').innerText = song.artist;
+        document.getElementById('player-cover').style.backgroundImage = coverSrc; document.getElementById('player-title').innerText = song.title; document.getElementById('player-artist').innerText = song.artist;
 
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
-                title: song.title,
-                artist: song.artist,
-                album: currentPlaylist ? currentPlaylist.title : 'pmusic',
-                artwork: song.coverUrl ? [{ src: song.coverUrl, sizes: '512x512', type: 'image/jpeg' }] : []
+                title: song.title, artist: song.artist, album: currentPlaylist ? currentPlaylist.title : 'pmusic',
+                artwork: song.coverUrl && song.coverUrl.startsWith('data:') ? [{ src: song.coverUrl, sizes: '512x512', type: 'image/jpeg' }] : []
             });
-            navigator.mediaSession.setActionHandler('play', () => togglePlay());
-            navigator.mediaSession.setActionHandler('pause', () => togglePlay());
-            navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
-            navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
+            navigator.mediaSession.setActionHandler('play', () => togglePlay()); navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+            navigator.mediaSession.setActionHandler('previoustrack', () => playPrev()); navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
         }
     }
 
@@ -1311,37 +1009,14 @@
     function navigate(pageId) { safeTransition(pageId); }
 
     // ================= 手势滑动退出系统 =================
-    let touchstartX = 0;
-    let touchstartY = 0;
-
-    document.addEventListener('touchstart', e => {
-        touchstartX = e.changedTouches[0].screenX;
-        touchstartY = e.changedTouches[0].screenY;
-    }, {passive: true});
-
+    let touchstartX = 0; let touchstartY = 0;
+    document.addEventListener('touchstart', e => { touchstartX = e.changedTouches[0].screenX; touchstartY = e.changedTouches[0].screenY; }, {passive: true});
     document.addEventListener('touchend', e => {
-        const touchendX = e.changedTouches[0].screenX;
-        const touchendY = e.changedTouches[0].screenY;
-        const xDiff = touchendX - touchstartX;
-        const yDiff = touchendY - touchstartY;
-
-        // 防止拖动进度条、拖拽排序或拖动歌词时误触发退出
+        const touchendX = e.changedTouches[0].screenX; const touchendY = e.changedTouches[0].screenY;
+        const xDiff = touchendX - touchstartX; const yDiff = touchendY - touchstartY;
         if(e.target.closest('.progress-container') || e.target.closest('.sortable-drag') || e.target.closest('.lyrics-content')) return;
-
-        // 1. 在全屏播放器界面
-        if (dom.pages.player.classList.contains('active')) {
-            // 向左划、向右划 (X轴滑动距离 > 80px) 或 向下划 (Y轴滑动距离 > 100px)
-            if ((Math.abs(xDiff) > 80 && Math.abs(yDiff) < 60) || (yDiff > 100 && Math.abs(xDiff) < 60)) {
-                closePlayer();
-            }
-        }
-        // 2. 在歌单详情界面
-        else if (dom.pages.detail.classList.contains('active')) {
-            // 原生 iOS 侧滑返回：从屏幕左侧边缘 (startX < 50) 向右滑动
-            if (xDiff > 80 && touchstartX < 50 && Math.abs(yDiff) < 60) {
-                navigate('home');
-            }
-        }
+        if (dom.pages.player.classList.contains('active')) { if ((Math.abs(xDiff) > 80 && Math.abs(yDiff) < 60) || (yDiff > 100 && Math.abs(xDiff) < 60)) { closePlayer(); } }
+        else if (dom.pages.detail.classList.contains('active')) { if (xDiff > 80 && touchstartX < 50 && Math.abs(yDiff) < 60) { navigate('home'); } }
     });
 
     // 启动 App
