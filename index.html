@@ -1297,6 +1297,41 @@
     function closePlayer() { safeTransition(currentPlaylist ? 'detail' : 'home'); }
     function navigate(pageId) { safeTransition(pageId); }
 
+    // ================= 手势滑动退出系统 =================
+    let touchstartX = 0;
+    let touchstartY = 0;
+
+    document.addEventListener('touchstart', e => {
+        // 记录手指初始按下的位置
+        touchstartX = e.changedTouches[0].screenX;
+        touchstartY = e.changedTouches[0].screenY;
+    }, {passive: true});
+
+    document.addEventListener('touchend', e => {
+        const touchendX = e.changedTouches[0].screenX;
+        const touchendY = e.changedTouches[0].screenY;
+        const xDiff = touchendX - touchstartX;
+        const yDiff = touchendY - touchstartY;
+
+        // 防止拖动进度条、拖拽排序或拖动歌词时误触发退出
+        if(e.target.closest('.progress-container') || e.target.closest('.sortable-drag') || e.target.closest('.lyrics-content')) return;
+
+        // 1. 在全屏播放器界面
+        if (dom.pages.player.classList.contains('active')) {
+            // 向左划、向右划 (X轴滑动距离 > 80px) 或 向下划 (Y轴滑动距离 > 100px)
+            if ((Math.abs(xDiff) > 80 && Math.abs(yDiff) < 60) || (yDiff > 100 && Math.abs(xDiff) < 60)) {
+                closePlayer();
+            }
+        }
+        // 2. 在歌单详情界面
+        else if (dom.pages.detail.classList.contains('active')) {
+            // 原生 iOS 侧滑返回：从屏幕左侧边缘 (startX < 50) 向右滑动
+            if (xDiff > 80 && touchstartX < 50 && Math.abs(yDiff) < 60) {
+                navigate('home');
+            }
+        }
+    });
+
     // 启动 App
     startApp();
 </script>
