@@ -246,6 +246,7 @@
         
         .player-content { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; padding: 5px 32px calc(20px + env(safe-area-inset-bottom)); position: relative; }
         
+        /* 核心防闪：移除了导致动画错位的 transition */
         .main-cover-wrapper { flex: 1; display: flex; align-items: flex-start; justify-content: center; margin-top: 15px; margin-bottom: 25px; position: relative; }
         .main-cover { 
             width: 100%; aspect-ratio: 1; border-radius: var(--radius-lg); background-size: cover; 
@@ -595,6 +596,9 @@
             }
         });
 
+        // 核心修复：预激活 audio 以防锁屏后因为没有权限挂起播放
+        dom.audioPlayer.load();
+
         try {
             await initDB();
             const data = await loadDataFromDB();
@@ -718,9 +722,12 @@
         closeModals(); renderHomePlaylists();
     }
 
+    let lastDeleteTime = 0;
     function deletePlaylistById(id, event) {
         if(event) { event.preventDefault(); event.stopPropagation(); }
-        
+        if(Date.now() - lastDeleteTime < 500) return;
+        lastDeleteTime = Date.now();
+
         openConfirmModal('删除歌单', '确定要彻底删除此歌单吗？', () => {
             playlists = playlists.filter(p => p.id !== id);
             savePlaylistsToDB();
@@ -776,7 +783,7 @@
             </div>`;
         }).join('');
 
-        // 绑定长按事件触发抖动编辑模式，增加 500ms 强制保护防误触
+        // 绑定长按事件触发抖动编辑模式
         const cards = dom.homeGrid.querySelectorAll('.playlist-card');
         cards.forEach(card => {
             const startPress = () => {
@@ -1048,10 +1055,16 @@
         return currentPlaylist.songs[nextIndex];
     }
 
+    // 核心修复 3：加入 Promise 捕获，解决因为切歌太快导致的 DOMException 崩溃死机
     function playSong(songId) {
         if(!songId) { dom.audioPlayer.pause(); syncPlayIcon(false); return; }
         if (currentSongId === songId && dom.audioPlayer.src) {
-            dom.audioPlayer.currentTime = 0; dom.audioPlayer.play(); syncPlayIcon(true); return;
+            dom.audioPlayer.currentTime = 0; 
+            const playPromise = dom.audioPlayer.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => syncPlayIcon(true)).catch(e => { console.error(e); syncPlayIcon(false); });
+            }
+            return;
         }
         const song = allSongs.get(songId);
         if (!song) return;
@@ -1060,12 +1073,19 @@
         if(isLyricsVisible) renderLyricsDisplay(); 
         
         const playPromise = dom.audioPlayer.play();
-        if (playPromise !== undefined) playPromise.then(() => syncPlayIcon(true)).catch(e => syncPlayIcon(false));
+        if (playPromise !== undefined) {
+            playPromise.then(() => syncPlayIcon(true)).catch(e => { console.error("快速切歌中断捕获:", e); syncPlayIcon(false); });
+        }
     }
 
     function togglePlay() {
         if (!currentSongId || !dom.audioPlayer.src) return;
-        if (dom.audioPlayer.paused) { dom.audioPlayer.play().then(() => syncPlayIcon(true)).catch(()=>syncPlayIcon(false)); } 
+        if (dom.audioPlayer.paused) { 
+            const playPromise = dom.audioPlayer.play();
+            if(playPromise !== undefined) {
+                playPromise.then(() => syncPlayIcon(true)).catch(()=>syncPlayIcon(false)); 
+            }
+        } 
         else { dom.audioPlayer.pause(); syncPlayIcon(false); }
     }
     function playNext(e) { if(e) { e.preventDefault(); e.stopPropagation(); } playSong(getNextSongId(true)); }
@@ -1100,7 +1120,6 @@
     function parseLRC(lrcText) {
         const lines = lrcText.split('\n');
         const result = [];
-        // 核心修复：增强时间轴正则，兼容所有特殊歌词格式并正确补齐毫秒
         const timeReg = /\[(\d{2,}):(\d{2})(?:\.(\d{1,3}))?\]/;
         for (let line of lines) {
             const match = timeReg.exec(line);
@@ -1259,11 +1278,12 @@
         document.getElementById('player-title').innerText = song.title;
         document.getElementById('player-artist').innerText = song.artist;
 
+        // 核心修复 2：同步更新系统锁屏媒体数据，保证手机熄屏也能控制！
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: song.title,
                 artist: song.artist,
-                album: currentPlaylist ? currentPlaylist.title : '本地音乐',
+                album: currentPlaylist ? currentPlaylist.title : 'pmusic',
                 artwork: song.coverUrl ? [{ src: song.coverUrl, sizes: '512x512', type: 'image/jpeg' }] : []
             });
             navigator.mediaSession.setActionHandler('play', () => togglePlay());
