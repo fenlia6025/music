@@ -9,7 +9,6 @@
     <!-- 移动端顺畅拖拽排序 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
-        /* ================= 基础变量与设计系统 ================= */
         :root {
             --bg-main: #F4F6F9;
             --bg-surface: #FFFFFF;
@@ -42,7 +41,6 @@
         }
         ::-webkit-scrollbar { display: none; }
 
-        /* ================= 苹果音乐级交互与自然弹性动效 ================= */
         .clickable { 
             transition: transform 0.16s var(--apple-spring), opacity 0.16s ease; 
             cursor: pointer; 
@@ -73,7 +71,6 @@
             background: var(--accent); color: #FFFFFF;
         }
 
-        /* ================= 歌曲品质徽标 (Apple Music 风格) ================= */
         .quality-badge {
             display: inline-flex;
             align-items: center;
@@ -105,7 +102,6 @@
             color: #007AFF;
         }
 
-        /* iOS 风格悬浮药丸提示 */
         .ios-toast {
             position: fixed;
             top: calc(18px + env(safe-area-inset-top, 10px));
@@ -132,7 +128,6 @@
             opacity: 1;
         }
 
-        /* ================= 1. 主页 (歌单页) ================= */
         .home-header {
             display: flex; justify-content: space-between; align-items: center;
             padding: calc(15px + env(safe-area-inset-top, 0px)) 20px 10px 20px; 
@@ -192,7 +187,6 @@
         .playlist-grid.edit-mode .card-delete-btn { display: flex; }
         .playlist-grid.edit-mode .card-play-btn { display: none; }
 
-        /* ================= 2. 歌单内容页 ================= */
         .detail-header {
             height: 55%;
             display: flex; flex-direction: column; 
@@ -263,7 +257,6 @@
         .sortable-ghost { opacity: 0.35; background: #F0F4F8; border: 2px dashed #CBD5E1; }
         .sortable-drag { cursor: grabbing !important; box-shadow: 0 15px 30px rgba(0,0,0,0.18) !important; transform: scale(1.03); z-index: 100;}
 
-        /* ================= 3. 悬浮胶囊迷你播放器 ================= */
         .mini-player {
             position: fixed; 
             bottom: calc(20px + env(safe-area-inset-bottom, 10px)); 
@@ -291,7 +284,6 @@
         .mini-btn { background: none; border: none; width: 38px; height: 38px; display: flex; justify-content: center; align-items: center; color: var(--text-main); flex-shrink: 0;}
         .mini-btn svg { width: 22px; height: 22px; fill: currentColor; }
 
-        /* ================= 4. 全屏播放器 (Apple 级呼吸展开动效) ================= */
         #page-player { 
             z-index: 90; background-color: var(--bg-main); 
             transform: translateY(100%) scale(0.92);
@@ -316,7 +308,6 @@
             transition: transform 0.5s var(--apple-bounce), box-shadow 0.5s var(--apple-spring), opacity 0.3s;
             transform: scale(0.88);
         }
-        /* Apple 音乐标志性呼吸反馈：播放时充盈展开，暂停时优雅微缩下沉 */
         .main-cover.is-playing {
             transform: scale(1);
             box-shadow: 0 26px 65px rgba(0,0,0,0.25);
@@ -368,7 +359,6 @@
         }
         .play-pause-btn svg { width: 36px; height: 36px; fill: currentColor; }
 
-        /* ================= 模态框 & 底部操作单 ================= */
         .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 200; display: flex; justify-content: center; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.25s var(--apple-spring); }
         .overlay.show { opacity: 1; pointer-events: auto; }
         
@@ -398,13 +388,12 @@
     <p style="color: var(--text-sub); font-size: 15px;">加载音乐库中...</p>
 </div>
 
-<!-- iOS 灵动药丸浮窗反馈 -->
 <div id="ios-toast" class="ios-toast">已切换播放模式</div>
 
 <div class="device-mockup">
-    <!-- 顶层标准 Audio 元素 -->
+    <!-- 顶层音频元素 -->
     <audio id="real-audio-player" preload="auto" playsinline webkit-playsinline></audio>
-    <input type="file" id="file-input" accept="audio/*, .mp3, .wav, .flac, .m4a, .aac, .ogg, .wma, .amr" multiple style="display: none;">
+    <input type="file" id="file-input" accept="audio/*, .mp3, .wav, .flac, .m4a, .aac, .ogg, .oga, .webm, .wma, .ape" multiple style="display: none;">
     <input type="file" id="cover-input" accept="image/*" style="display: none;">
     <input type="file" id="lrc-input" accept=".lrc" style="display: none;">
 
@@ -503,7 +492,7 @@
         </div>
     </div>
 
-    <!-- 弹窗 -->
+    <!-- 弹窗及确认模态框 -->
     <div class="overlay" id="input-modal-overlay" onclick="closeModals(event)">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h3 id="modal-title">输入</h3>
@@ -628,17 +617,17 @@
     let justEnteredEditMode = false;
     let pressTimer = null;
 
-    // 高帧率歌词状态
+    // 高性能歌词缓存
     let parsedLyrics = [];
     let lyricElements = [];
     let currentActiveLyricIndex = -1;
     let isUserScrollingLyrics = false;
     let lyricUserScrollTimer = null;
 
-    // 进度条拖拽控制器
+    // 进度条平滑擦洗控制器
     let isScrubbing = false;
 
-    // 快捷提示 Toast
+    // 提示定时器
     let toastTimer = null;
     function showToast(msg) {
         const toastEl = document.getElementById('ios-toast');
@@ -648,26 +637,182 @@
         if (toastTimer) clearTimeout(toastTimer);
         toastTimer = setTimeout(() => {
             toastEl.classList.remove('show');
-        }, 1800);
+        }, 2000);
     }
 
-    // 计算歌曲音质等级 (Apple Music 风格)
+    // 关键核心：根据扩展名及文件内容精准推导 MIME 类型，防止移动端 WebKit 因空 MIME 直接拒绝解码
+    function getAudioMimeType(file) {
+        if (file && file.type && file.type.startsWith('audio/')) {
+            return file.type;
+        }
+        const name = (file?.name || '').toLowerCase();
+        const ext = name.split('.').pop();
+        switch (ext) {
+            case 'mp3': return 'audio/mpeg';
+            case 'm4a': case 'aac': return 'audio/mp4';
+            case 'flac': return 'audio/flac';
+            case 'wav': return 'audio/wav';
+            case 'ogg': case 'oga': return 'audio/ogg';
+            case 'webm': return 'audio/webm';
+            case 'opus': return 'audio/opus';
+            default: return 'audio/mpeg';
+        }
+    }
+
+    // 利用 zero-copy slice 重新封装具有合法 Content-Type 的 Blob URL
+    function createAudioBlobUrl(file, startByte = 0) {
+        if (!file) return null;
+        const mime = getAudioMimeType(file);
+        const blobSlice = (startByte > 0) 
+            ? file.slice(startByte, file.size, mime) 
+            : file.slice(0, file.size, mime);
+        return URL.createObjectURL(blobSlice);
+    }
+
+    // 针对 HQ 320K MP3 解析前置超大 ID3v2 标签并提取真实音频帧偏移
+    async function getAudioStartOffset(file) {
+        try {
+            const headerSlice = await file.slice(0, 10).arrayBuffer();
+            const bytes = new Uint8Array(headerSlice);
+            if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) { // 'ID3'
+                const tagSize = ((bytes[6] & 0x7F) << 21) |
+                                ((bytes[7] & 0x7F) << 14) |
+                                ((bytes[8] & 0x7F) << 7)  |
+                                (bytes[9] & 0x7F);
+                const hasFooter = (bytes[5] & 0x10) !== 0;
+                return 10 + tagSize + (hasFooter ? 10 : 0);
+            }
+        } catch (e) {}
+        return 0;
+    }
+
+    // Web Audio 底层 PCM 解码与播放引擎（作为 HTML5 Audio 无法播放时的终极兜底）
+    const webAudioEngine = {
+        ctx: null,
+        source: null,
+        buffer: null,
+        isPlaying: false,
+        startTime: 0,
+        pausedAt: 0,
+        duration: 0,
+        ticker: null,
+        init() {
+            if (!this.ctx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) this.ctx = new AudioCtx();
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        },
+        async loadAndPlay(file, offsetSeconds = 0) {
+            this.init();
+            if (!this.ctx) throw new Error("Web Audio not supported");
+            this.stop();
+            const arrayBuffer = await file.arrayBuffer();
+            this.buffer = await this.ctx.decodeAudioData(arrayBuffer);
+            this.duration = this.buffer.duration;
+            this.playFrom(offsetSeconds);
+        },
+        playFrom(offsetSeconds) {
+            if (!this.ctx || !this.buffer) return;
+            this.stopSourceOnly();
+            this.source = this.ctx.createBufferSource();
+            this.source.buffer = this.buffer;
+            this.source.connect(this.ctx.destination);
+            this.source.onended = () => {
+                if (this.isPlaying && this.getCurrentTime() >= this.duration - 0.5) {
+                    this.isPlaying = false;
+                    syncPlayIcon(false);
+                    playNext();
+                }
+            };
+            this.pausedAt = offsetSeconds;
+            this.startTime = this.ctx.currentTime - offsetSeconds;
+            this.source.start(0, offsetSeconds);
+            this.isPlaying = true;
+            syncPlayIcon(true);
+            this.startTicker();
+        },
+        pause() {
+            if (!this.isPlaying) return;
+            this.pausedAt = this.getCurrentTime();
+            this.stopSourceOnly();
+            this.isPlaying = false;
+            syncPlayIcon(false);
+        },
+        resume() {
+            if (this.isPlaying || !this.buffer) return;
+            this.playFrom(this.pausedAt);
+        },
+        seek(seconds) {
+            seconds = Math.max(0, Math.min(seconds, this.duration));
+            this.pausedAt = seconds;
+            if (this.isPlaying) {
+                this.playFrom(seconds);
+            } else {
+                dom.timeCurrent.innerText = formatTime(seconds);
+                if (this.duration) dom.progressFill.style.width = `${(seconds / this.duration) * 100}%`;
+            }
+        },
+        getCurrentTime() {
+            if (!this.ctx) return 0;
+            if (this.isPlaying) {
+                return Math.min(this.duration, Math.max(0, this.ctx.currentTime - this.startTime));
+            }
+            return this.pausedAt;
+        },
+        stopSourceOnly() {
+            if (this.source) {
+                try { this.source.stop(); this.source.disconnect(); } catch (e) {}
+                this.source = null;
+            }
+        },
+        stop() {
+            this.stopSourceOnly();
+            this.isPlaying = false;
+            this.buffer = null;
+            this.pausedAt = 0;
+            this.duration = 0;
+            if (this.ticker) cancelAnimationFrame(this.ticker);
+        },
+        startTicker() {
+            if (this.ticker) cancelAnimationFrame(this.ticker);
+            const tick = () => {
+                if (this.isPlaying) {
+                    const curr = this.getCurrentTime();
+                    if (!isScrubbing) {
+                        dom.timeCurrent.innerText = formatTime(curr);
+                        if (this.duration) dom.progressFill.style.width = `${(curr / this.duration) * 100}%`;
+                    }
+                    updateLyricScroller(curr);
+                    this.ticker = requestAnimationFrame(tick);
+                }
+            };
+            this.ticker = requestAnimationFrame(tick);
+        }
+    };
+
+    let isUsingWebAudio = false;
+
+    // 计算歌曲音质等级 (Apple Music 胶囊徽标)
     function getAudioQuality(song) {
         if (!song || !song.audioFile) return { label: '标准音质', type: 'standard' };
         const name = (song.audioFile.name || '').toLowerCase();
         const ext = name.split('.').pop();
         
-        // 无损格式检测
+        // 无损格式深度检测
         if (['flac', 'wav', 'alac', 'ape', 'aiff'].includes(ext)) {
-            if (song.audioFile.size > 28 * 1024 * 1024) {
+            if (song.audioFile.size > 26 * 1024 * 1024) {
                 return { label: 'Hi-Res 无损', type: 'hires' };
             }
             return { label: '无损', type: 'lossless' };
         }
         
-        // 估算码率
-        if (song.duration && song.duration > 0) {
-            const kbps = Math.round((song.audioFile.size * 8) / song.duration / 1000);
+        // 计算真实码率 (kbps)
+        const dur = song.duration || (dom.audioPlayer.duration && currentSongId === song.id ? dom.audioPlayer.duration : 0);
+        if (dur && dur > 0) {
+            const kbps = Math.round((song.audioFile.size * 8) / dur / 1000);
             if (kbps >= 290) return { label: 'HQ 320K', type: 'hq' };
             if (kbps >= 210) return { label: '极高 256K', type: 'hq' };
             if (kbps >= 150) return { label: '高品质 AAC', type: 'hq' };
@@ -675,11 +820,11 @@
         }
 
         if (['m4a', 'aac'].includes(ext)) return { label: 'AAC 高品质', type: 'hq' };
-        if (song.audioFile.size > 9 * 1024 * 1024) return { label: '高品质 HQ', type: 'hq' };
+        if (song.audioFile.size > 8 * 1024 * 1024) return { label: 'HQ 320K', type: 'hq' };
         return { label: '标准音质', type: 'standard' };
     }
 
-    // 强力零依赖：多格式内嵌封面二进制深度解包器 (MP3 ID3v2 / M4A / FLAC)
+    // 零依赖多格式内嵌封面二进制解包器 (MP3 ID3v2 APIC / M4A covr / FLAC PICTURE)
     async function extractCoverNative(file) {
         try {
             const sliceSize = Math.min(file.size, 6 * 1024 * 1024);
@@ -700,7 +845,7 @@
                 }
             }
 
-            // 2. MP3 ID3v2 标签精准解析 (APIC 帧)
+            // 2. MP3 ID3v2 APIC 帧精准解包
             if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
                 for (let i = 10; i < bytes.length - 16; i++) {
                     if (bytes[i] === 0x41 && bytes[i+1] === 0x50 && bytes[i+2] === 0x49 && bytes[i+3] === 0x43) {
@@ -716,7 +861,7 @@
                 }
             }
 
-            // 3. FLAC 原生 PICTURE 元数据块识别
+            // 3. FLAC PICTURE 元数据块识别
             if (bytes[0] === 0x66 && bytes[1] === 0x4C && bytes[2] === 0x61 && bytes[3] === 0x43) {
                 for (let i = 4; i < Math.min(bytes.length - 16, 2 * 1024 * 1024); i++) {
                     if (bytes[i] === 0xFF && bytes[i+1] === 0xD8 && bytes[i+2] === 0xFF) {
@@ -728,7 +873,7 @@
                 }
             }
 
-            // 4. 全流特征魔数强力嗅探
+            // 4. 全流特征魔数强力扫描
             for (let i = 0; i < bytes.length - 4; i++) {
                 if (bytes[i] === 0xFF && bytes[i+1] === 0xD8 && bytes[i+2] === 0xFF && (bytes[i+3] === 0xE0 || bytes[i+3] === 0xE1 || bytes[i+3] === 0xDB || bytes[i+3] === 0xEE)) {
                     return sliceExactImage(bytes, i, 'image/jpeg');
@@ -761,7 +906,6 @@
         return new Blob([bytes.subarray(startIndex, safeEnd)], { type: mimeType });
     }
 
-    // 专属抽象黑胶光盘封面生成（针对无内嵌封面的自适应艺术化配图）
     function generateCoverFromTitle(title, artist) {
         return new Promise((resolve) => {
             try {
@@ -866,7 +1010,9 @@
             } else { playlists = []; }
 
             data.songs.forEach(dbSong => {
-                if (dbSong.audioFile) dbSong.url = URL.createObjectURL(dbSong.audioFile);
+                if (dbSong.audioFile) {
+                    dbSong.url = createAudioBlobUrl(dbSong.audioFile);
+                }
                 dbSong.coverUrl = dbSong.coverBlob ? URL.createObjectURL(dbSong.coverBlob) : null;
                 allSongs.set(dbSong.id, dbSong);
             });
@@ -879,6 +1025,7 @@
         document.querySelector('#btn-play-mode svg').innerHTML = modeIcons[playMode];
         initProgressBarScrubbing();
         initLyricScrollInteractivity();
+        setupAudioErrorRecovery();
         hideLoader();
     }
 
@@ -1043,7 +1190,6 @@
             </div>`;
         }).join('');
 
-        // 丝滑长按手势监听
         const cards = dom.homeGrid.querySelectorAll('.playlist-card');
         cards.forEach(card => {
             const startPress = () => {
@@ -1065,7 +1211,6 @@
             card.addEventListener('mouseleave', clearPress);
         });
 
-        // 拖拽排序体验优化
         window.homeSortable = new Sortable(dom.homeGrid, {
             animation: 250, 
             disabled: !isEditMode,
@@ -1149,6 +1294,7 @@
         playlistCoverCache.clear(); 
 
         if(currentSongId === targetActionId) {
+            if (isUsingWebAudio) webAudioEngine.stop();
             dom.audioPlayer.pause();
             if(currentPlaylist.songs.length > 0) playNext(); else { dom.miniPlayer.classList.remove('visible'); currentSongId = null; }
         }
@@ -1223,10 +1369,10 @@
             } 
         }
 
-        // 1. 原生深度解包提取封面
+        // 1. 原生深度解包提取封面 (无惧大文件)
         let coverBlob = await extractCoverNative(file);
 
-        // 2. jsmediatags 标签辅助解析
+        // 2. jsmediatags 标签辅助嗅探标题和歌手
         if (window.jsmediatags) {
             await new Promise((res) => {
                 const timeout = setTimeout(res, 500);
@@ -1265,7 +1411,8 @@
             duration: 0
         };
 
-        songData.url = URL.createObjectURL(songData.audioFile);
+        // 关键：创建带有标准 MIME 类型的 URL
+        songData.url = createAudioBlobUrl(songData.audioFile);
         if (songData.coverBlob) songData.coverUrl = URL.createObjectURL(songData.coverBlob);
 
         allSongs.set(songId, songData); 
@@ -1299,9 +1446,24 @@
         return currentPlaylist.songs[nextIndex];
     }
 
-    function playSong(songId) {
-        if(!songId) { dom.audioPlayer.pause(); syncPlayIcon(false); return; }
-        if (currentSongId === songId && dom.audioPlayer.src) {
+    async function playSong(songId) {
+        if(!songId) { 
+            stopAllAudio();
+            syncPlayIcon(false); 
+            return; 
+        }
+
+        // 停止之前的 Web Audio 实例
+        if (isUsingWebAudio) {
+            webAudioEngine.stop();
+            isUsingWebAudio = false;
+        }
+
+        const song = allSongs.get(songId); 
+        if (!song) return;
+
+        // 如果点击正在播放的同一首，重置进度播放
+        if (currentSongId === songId && dom.audioPlayer.src && !isUsingWebAudio) {
             dom.audioPlayer.currentTime = 0; 
             const playPromise = dom.audioPlayer.play();
             if (playPromise !== undefined) { 
@@ -1311,38 +1473,128 @@
             }
             return;
         }
-        const song = allSongs.get(songId); if (!song) return;
-        currentSongId = songId; dom.audioPlayer.src = song.url;
+
+        currentSongId = songId;
         currentActiveLyricIndex = -1;
-        updatePlayerUI(); renderSongList(); dom.miniPlayer.classList.add('visible');
+        updatePlayerUI(); 
+        renderSongList(); 
+        dom.miniPlayer.classList.add('visible');
         if(isLyricsVisible) renderLyricsDisplay(); 
+
+        // 核心：若 URL 丢失或为默认空，重新创建具备标准 MIME 的 Blob URL
+        if (!song.url || !song.url.startsWith('blob:')) {
+            song.url = createAudioBlobUrl(song.audioFile);
+        }
+
+        dom.audioPlayer.src = song.url;
+
         const playPromise = dom.audioPlayer.play();
         if (playPromise !== undefined) { 
-            playPromise.then(() => syncPlayIcon(true)).catch((e) => {
-                if (e.name !== 'AbortError') syncPlayIcon(false);
+            playPromise.then(() => {
+                syncPlayIcon(true);
+            }).catch(async (e) => {
+                if (e.name === 'AbortError') return;
+                console.warn("标准音频播放被拦截，启动自愈修复通道...", e);
+                await recoverAndPlaySong(song);
             }); 
         }
     }
 
+    // 播放自愈恢复通道：脱壳超大前置 ID3 标签或无缝转入 Web Audio PCM 解码
+    async function recoverAndPlaySong(song) {
+        if (!song || !song.audioFile) return;
+
+        // 步骤 1: 扫描是否为带有超大 ID3 封面的 HQ 320K MP3
+        const audioOffset = await getAudioStartOffset(song.audioFile);
+        if (audioOffset > 512 * 1024) {
+            try {
+                console.info(`检测到超大 ID3v2 前置数据包 (${Math.round(audioOffset/1024)}KB)，开始纯净音频帧剥离...`);
+                const pureUrl = createAudioBlobUrl(song.audioFile, audioOffset);
+                dom.audioPlayer.src = pureUrl;
+                const p = dom.audioPlayer.play();
+                if (p !== undefined) {
+                    await p;
+                    syncPlayIcon(true);
+                    return;
+                }
+            } catch (err) {
+                console.warn("纯净帧音频仍无法解码，启用 Web Audio 引擎...", err);
+            }
+        }
+
+        // 步骤 2: 启动底层 Web Audio API PCM 解码通道
+        try {
+            showToast('正在为您解码高清音频...');
+            isUsingWebAudio = true;
+            dom.audioPlayer.pause();
+            await webAudioEngine.loadAndPlay(song.audioFile, 0);
+            if (song.duration === 0 && webAudioEngine.duration > 0) {
+                song.duration = webAudioEngine.duration;
+                saveSongToDB(song);
+                dom.timeTotal.innerText = formatTime(song.duration);
+            }
+        } catch (webaudioErr) {
+            console.error("所有音频解码通道均失败:", webaudioErr);
+            isUsingWebAudio = false;
+            syncPlayIcon(false);
+            showToast('当前浏览器暂不支持该特殊格式');
+        }
+    }
+
+    function stopAllAudio() {
+        if (isUsingWebAudio) webAudioEngine.stop();
+        dom.audioPlayer.pause();
+    }
+
+    function setupAudioErrorRecovery() {
+        dom.audioPlayer.addEventListener('error', async () => {
+            if (!currentSongId) return;
+            const song = allSongs.get(currentSongId);
+            if (song && !isUsingWebAudio) {
+                console.warn("捕获到底层音频错误，触发自愈修复...");
+                await recoverAndPlaySong(song);
+            }
+        });
+    }
+
     function togglePlay() {
-        if (!currentSongId || !dom.audioPlayer.src) return;
+        if (!currentSongId) {
+            if (currentPlaylist && currentPlaylist.songs.length > 0) playSong(currentPlaylist.songs[0]);
+            return;
+        }
+
+        if (isUsingWebAudio) {
+            if (webAudioEngine.isPlaying) {
+                webAudioEngine.pause();
+            } else {
+                webAudioEngine.resume();
+            }
+            return;
+        }
+
         if (dom.audioPlayer.paused) { 
             const playPromise = dom.audioPlayer.play();
             if(playPromise !== undefined) { 
-                playPromise.then(() => syncPlayIcon(true)).catch((e) => {
-                    if (e.name !== 'AbortError') syncPlayIcon(false);
+                playPromise.then(() => syncPlayIcon(true)).catch(async (e) => {
+                    if (e.name !== 'AbortError') {
+                        const song = allSongs.get(currentSongId);
+                        await recoverAndPlaySong(song);
+                    }
                 }); 
             }
-        } 
-        else { dom.audioPlayer.pause(); syncPlayIcon(false); }
+        } else { 
+            dom.audioPlayer.pause(); 
+            syncPlayIcon(false); 
+        }
     }
+
     function playNext(e) { if(e) { e.preventDefault(); e.stopPropagation(); } playSong(getNextSongId(true)); }
     function playPrev(e) { if(e) { e.preventDefault(); e.stopPropagation(); } playSong(getNextSongId(false)); }
 
     function syncPlayIcon(isPlaying) {
         const iconPath = isPlaying ? pauseIcon : playIcon;
-        document.querySelector('#mini-play-btn svg').innerHTML = iconPath; document.querySelector('#main-play-btn svg').innerHTML = iconPath;
-        // Apple 音乐封面物理呼吸动效
+        document.querySelector('#mini-play-btn svg').innerHTML = iconPath; 
+        document.querySelector('#main-play-btn svg').innerHTML = iconPath;
         if (isPlaying) {
             dom.playerCover.classList.add('is-playing');
         } else {
@@ -1350,7 +1602,9 @@
         }
     }
 
-    dom.audioPlayer.addEventListener('ended', playNext);
+    dom.audioPlayer.addEventListener('ended', () => {
+        if (!isUsingWebAudio) playNext();
+    });
 
     let isLyricsVisible = false;
 
@@ -1405,14 +1659,15 @@
         }
     }
 
-    // 点击歌词行直接跳播
     function seekToLyricLine(time) {
-        if (!dom.audioPlayer.duration) return;
-        dom.audioPlayer.currentTime = time;
+        if (isUsingWebAudio) {
+            webAudioEngine.seek(time);
+        } else if (dom.audioPlayer.duration) {
+            dom.audioPlayer.currentTime = time;
+        }
         isUserScrollingLyrics = false;
     }
 
-    // 用户滚动歌词时暂停自动滚动 3.5 秒
     function initLyricScrollInteractivity() {
         const setScrolling = () => {
             isUserScrollingLyrics = true;
@@ -1475,17 +1730,10 @@
 
     function formatTime(s) { if (isNaN(s)) return "0:00"; const m = Math.floor(s/60); const sec = Math.floor(s%60); return `${m}:${sec<10?'0'+sec:sec}`; }
     
-    dom.audioPlayer.addEventListener('timeupdate', () => {
-        const currentTime = dom.audioPlayer.currentTime; 
-        if (!isScrubbing) {
-            dom.timeCurrent.innerText = formatTime(currentTime);
-            if (dom.audioPlayer.duration) dom.progressFill.style.width = `${(currentTime/dom.audioPlayer.duration)*100}%`;
-        }
-        
-        // 丝滑歌词滚动计算
+    function updateLyricScroller(currentTime) {
         if (isLyricsVisible && parsedLyrics.length > 0 && lyricElements.length > 0) {
             let activeIndex = -1;
-            for(let i=0; i<parsedLyrics.length; i++) { 
+            for(let i = 0; i < parsedLyrics.length; i++) { 
                 if(currentTime >= parsedLyrics[i].time) activeIndex = i; else break; 
             }
             if(activeIndex !== -1 && activeIndex !== currentActiveLyricIndex) {
@@ -1505,9 +1753,20 @@
                 }
             }
         }
+    }
+
+    dom.audioPlayer.addEventListener('timeupdate', () => {
+        if (isUsingWebAudio) return;
+        const currentTime = dom.audioPlayer.currentTime; 
+        if (!isScrubbing) {
+            dom.timeCurrent.innerText = formatTime(currentTime);
+            if (dom.audioPlayer.duration) dom.progressFill.style.width = `${(currentTime/dom.audioPlayer.duration)*100}%`;
+        }
+        updateLyricScroller(currentTime);
     });
     
     dom.audioPlayer.addEventListener('loadedmetadata', () => { 
+        if (isUsingWebAudio) return;
         dom.timeTotal.innerText = formatTime(dom.audioPlayer.duration);
         if (currentSongId) {
             const s = allSongs.get(currentSongId);
@@ -1520,23 +1779,40 @@
         }
     });
 
-    // 顺滑手势拖拽进度条 (Scrubbing)
     function initProgressBarScrubbing() {
         const container = dom.progressContainer;
         let scrubRatio = 0;
 
+        const getActiveDuration = () => {
+            if (isUsingWebAudio) return webAudioEngine.duration;
+            return dom.audioPlayer.duration || 0;
+        };
+
         const updateScrub = (clientX) => {
-            if (!dom.audioPlayer.duration) return;
+            const totalDur = getActiveDuration();
+            if (!totalDur) return;
             const rect = container.getBoundingClientRect();
             let ratio = (clientX - rect.left) / rect.width;
             ratio = Math.max(0, Math.min(1, ratio));
             scrubRatio = ratio;
             dom.progressFill.style.width = `${ratio * 100}%`;
-            dom.timeCurrent.innerText = formatTime(ratio * dom.audioPlayer.duration);
+            dom.timeCurrent.innerText = formatTime(ratio * totalDur);
+        };
+
+        const applySeek = () => {
+            const totalDur = getActiveDuration();
+            if (totalDur) {
+                const targetTime = scrubRatio * totalDur;
+                if (isUsingWebAudio) {
+                    webAudioEngine.seek(targetTime);
+                } else {
+                    dom.audioPlayer.currentTime = targetTime;
+                }
+            }
         };
 
         const onTouchStart = (e) => {
-            if (!dom.audioPlayer.duration) return;
+            if (!getActiveDuration()) return;
             isScrubbing = true;
             container.classList.add('scrubbing');
             updateScrub(e.touches[0].clientX);
@@ -1549,9 +1825,7 @@
             if (!isScrubbing) return;
             isScrubbing = false;
             container.classList.remove('scrubbing');
-            if (dom.audioPlayer.duration) {
-                dom.audioPlayer.currentTime = scrubRatio * dom.audioPlayer.duration;
-            }
+            applySeek();
         };
 
         container.addEventListener('touchstart', onTouchStart, {passive: true});
@@ -1559,7 +1833,7 @@
         window.addEventListener('touchend', onTouchEnd);
 
         container.addEventListener('mousedown', (e) => {
-            if (!dom.audioPlayer.duration) return;
+            if (!getActiveDuration()) return;
             isScrubbing = true;
             container.classList.add('scrubbing');
             updateScrub(e.clientX);
@@ -1569,9 +1843,7 @@
                 if(isScrubbing) {
                     isScrubbing = false;
                     container.classList.remove('scrubbing');
-                    if (dom.audioPlayer.duration) {
-                        dom.audioPlayer.currentTime = scrubRatio * dom.audioPlayer.duration;
-                    }
+                    applySeek();
                 }
                 window.removeEventListener('mousemove', onMouseMove);
                 window.removeEventListener('mouseup', onMouseUp);
@@ -1591,7 +1863,7 @@
         document.getElementById('player-title').innerText = song.title; 
         document.getElementById('player-artist').innerText = song.artist;
 
-        // 更新全屏播放器音质胶囊徽章
+        // 更新音质胶囊徽章
         const quality = getAudioQuality(song);
         const badgeEl = document.getElementById('player-quality-badge');
         if (badgeEl) {
@@ -1615,7 +1887,6 @@
     function closePlayer() { safeTransition(currentPlaylist ? 'detail' : 'home'); }
     function navigate(pageId) { safeTransition(pageId); }
 
-    // 手势侧滑与平滑返回
     let touchstartX = 0; let touchstartY = 0;
     document.addEventListener('touchstart', e => { 
         touchstartX = e.changedTouches[0].screenX; 
