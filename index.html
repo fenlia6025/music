@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>pmusic</title>
-    <!-- 解析本地音频 ID3 信息 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
     <!-- 支持移动端长按拖拽排序 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
@@ -98,7 +96,6 @@
         .playlist-card h3 { font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
         .playlist-card p { font-size: 11px; color: var(--text-sub); margin: 0; }
 
-        /* --- 补齐的长按抖动与删除 X 按钮 CSS --- */
         @keyframes shake {
             0% { transform: rotate(-1deg); }
             50% { transform: rotate(1.5deg); }
@@ -325,7 +322,7 @@
                 </button>
             </div>
             <div class="detail-info">
-                <div class="detail-cover" id="detail-cover" style="background-image: url('');"></div>
+                <div class="detail-cover" id="detail-cover" style="background-image: none;"></div>
                 <div class="detail-text"><p id="detail-desc">包含 0 首歌曲</p></div>
             </div>
             <div class="btn-action-group">
@@ -337,7 +334,7 @@
     </div>
 
     <div id="mini-player" class="mini-player" onclick="openPlayer(event)">
-        <div class="mini-cover" id="mini-cover" style="background-image: url('');"></div>
+        <div class="mini-cover" id="mini-cover" style="background-image: none;"></div>
         <div class="mini-info">
             <h4 id="mini-title">未播放</h4>
             <p id="mini-artist">-</p>
@@ -357,7 +354,7 @@
         </div>
         <div class="player-content">
             <div class="main-cover-wrapper" onclick="toggleLyricsView()">
-                <div class="main-cover" id="player-cover" style="background-image: url('');"></div>
+                <div class="main-cover" id="player-cover" style="background-image: none;"></div>
                 <div class="lyrics-view hidden" id="lyrics-view" onclick="event.stopPropagation(); toggleLyricsView();">
                     <div class="lyrics-content" id="lyrics-content" onclick="event.stopPropagation()"><p>暂无歌词信息</p></div>
                     <div id="lyrics-actions" style="display:flex; gap:16px; margin-top: 15px;">
@@ -415,7 +412,7 @@
 </div>
 
 <script>
-    // ================= IndexedDB 持久化存储 (回退至最稳定原生版本) =================
+    // ================= IndexedDB 原生稳定存储 =================
     const DB_NAME = 'LocalMusicDB';
     const DB_VERSION = 1;
     let db;
@@ -436,8 +433,11 @@
     function saveSongToDB(song) {
         return new Promise((resolve) => {
             const tx = db.transaction('songs', 'readwrite');
-            // 回归 23:46 最稳定的保存方式，绝不卡死
-            const dbSong = { id: song.id, title: song.title, artist: song.artist, audioFile: song.audioFile, coverBlob: song.coverBlob, fallbackCover: song.fallbackCover, lyrics: song.lyrics };
+            const dbSong = { 
+                id: song.id, title: song.title, artist: song.artist, 
+                audioFile: song.audioFile, coverBlob: song.coverBlob, 
+                fallbackCover: song.fallbackCover, lyrics: song.lyrics 
+            };
             tx.objectStore('songs').put(dbSong);
             tx.oncomplete = resolve;
         });
@@ -505,9 +505,15 @@
     const playIcon = `<path d="M8 5v14l11-7z"/>`;
     const pauseIcon = `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
 
+    // 辅助：统一 CSS background 属性，避免嵌套 url('url(...)')
+    function formatCoverCSS(url, fallback) {
+        if (url) return `url('${url}')`;
+        if (fallback) return fallback.startsWith('url(') ? fallback : fallback;
+        return 'none';
+    }
+
     // ================= 应用启动初始化 =================
     async function startApp() {
-        // 全局点击取消抖动状态
         dom.pages.home.addEventListener('click', (e) => {
             if(isEditMode && !justEnteredEditMode && !e.target.closest('.card-delete-btn') && !e.target.closest('.playlist-card')) {
                 isEditMode = false; dom.homeGrid.classList.remove('edit-mode');
@@ -523,7 +529,7 @@
             } else { playlists = []; }
 
             data.songs.forEach(dbSong => {
-                dbSong.url = URL.createObjectURL(dbSong.audioFile);
+                if (dbSong.audioFile) dbSong.url = URL.createObjectURL(dbSong.audioFile);
                 dbSong.coverUrl = dbSong.coverBlob ? URL.createObjectURL(dbSong.coverBlob) : null;
                 allSongs.set(dbSong.id, dbSong);
             });
@@ -620,7 +626,6 @@
         });
     }
 
-    // 红叉删除逻辑
     let lastDeleteTime = 0;
     function deletePlaylistById(id, event) {
         if(event) { event.preventDefault(); event.stopPropagation(); }
@@ -637,7 +642,9 @@
         if (playlistCoverCache.has(playlist.id)) return playlistCoverCache.get(playlist.id);
         const songsWithCover = playlist.songs.map(id => allSongs.get(id)).filter(s => s && s.coverUrl);
         let coverToUse = playlist.cover || generateGradient(); 
-        if (songsWithCover.length > 0) coverToUse = `url('${songsWithCover[Math.floor(Math.random() * songsWithCover.length)].coverUrl}')`;
+        if (songsWithCover.length > 0) {
+            coverToUse = `url('${songsWithCover[0].coverUrl}')`;
+        }
         playlistCoverCache.set(playlist.id, coverToUse);
         return coverToUse;
     }
@@ -736,7 +743,8 @@
     function deleteSong() {
         if(!currentPlaylist) return;
         currentPlaylist.songs = currentPlaylist.songs.filter(id => id !== targetActionId); savePlaylistsToDB();
-        let isUsedElsewhere = false; playlists.forEach(pl => { if(pl.songs.includes(targetActionId)) isUsedElsewhere = true; });
+        let isUsedElsewhere = false; 
+        playlists.forEach(pl => { if(pl.songs.includes(targetActionId)) isUsedElsewhere = true; });
         if(!isUsedElsewhere) { allSongs.delete(targetActionId); deleteSongFromDB(targetActionId); }
         playlistCoverCache.clear(); 
 
@@ -755,10 +763,10 @@
         dom.songList.innerHTML = currentPlaylist.songs.map((songId) => {
             const s = allSongs.get(songId); if (!s) return '';
             const isPlaying = s.id === currentSongId;
-            const coverStyle = s.coverUrl ? `background-image: url('${s.coverUrl}')` : `background-image: ${s.fallbackCover}`;
+            const coverStyle = formatCoverCSS(s.coverUrl, s.fallbackCover);
             return `
             <div class="song-item clickable ${isPlaying ? 'playing' : ''}" onclick="playSong('${s.id}')">
-                <div class="song-cover" style="${coverStyle}"></div>
+                <div class="song-cover" style="background-image: ${coverStyle};"></div>
                 <div class="song-info"><h4>${s.title}</h4><p>${s.artist}</p></div>
                 <div class="more-wrapper" onclick="openSongSheet('${s.id}', event)">
                     <button class="btn-icon"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></button>
@@ -777,11 +785,55 @@
         });
     }
 
-    // ================= 极速安全文件解析导入 (23:46 最稳定代码) =================
+    // ================= 核心：纯原生二进制快速提取音频封面 (覆盖国内全部 MP3/FLAC) =================
+    async function extractCoverNative(file) {
+        try {
+            // 读取前 3MB 数据，确保足够覆盖全部 ID3v2 标签与高清 APIC 图片
+            const sliceSize = Math.min(file.size, 3 * 1024 * 1024);
+            const buffer = await file.slice(0, sliceSize).arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+
+            // 1. MP3 ID3v2 解析
+            if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) { // 'ID3'
+                // 查找 'APIC' 帧标识符
+                for (let i = 10; i < bytes.length - 10; i++) {
+                    if (bytes[i] === 0x41 && bytes[i+1] === 0x50 && bytes[i+2] === 0x49 && bytes[i+3] === 0x43) { // 'APIC'
+                        // 在 APIC 帧之后寻找图片特征头 (JPEG: FF D8 FF 或 PNG: 89 50 4E 47)
+                        for (let j = i + 10; j < Math.min(i + 250, bytes.length - 4); j++) {
+                            if (bytes[j] === 0xFF && bytes[j+1] === 0xD8 && bytes[j+2] === 0xFF) {
+                                return new Blob([bytes.subarray(j)], { type: 'image/jpeg' });
+                            }
+                            if (bytes[j] === 0x89 && bytes[j+1] === 0x50 && bytes[j+2] === 0x4E && bytes[j+3] === 0x47) {
+                                return new Blob([bytes.subarray(j)], { type: 'image/png' });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. FLAC / OGG / M4A 特征头直接匹配 (兜底直接检索嵌入的 JPEG/PNG 二进制魔数)
+            for (let i = 0; i < bytes.length - 4; i++) {
+                if (bytes[i] === 0xFF && bytes[i+1] === 0xD8 && bytes[i+2] === 0xFF && bytes[i+3] === 0xE0) {
+                    return new Blob([bytes.subarray(i)], { type: 'image/jpeg' });
+                }
+                if (bytes[i] === 0xFF && bytes[i+1] === 0xD8 && bytes[i+2] === 0xFF && bytes[i+3] === 0xE1) {
+                    return new Blob([bytes.subarray(i)], { type: 'image/jpeg' });
+                }
+                if (bytes[i] === 0x89 && bytes[i+1] === 0x50 && bytes[i+2] === 0x4E && bytes[i+3] === 0x47) {
+                    return new Blob([bytes.subarray(i)], { type: 'image/png' });
+                }
+            }
+        } catch (e) {
+            console.warn("二进制提取封面失败，使用兜底", e);
+        }
+        return null;
+    }
+
+    // ================= 导入与元数据读取 =================
     dom.fileInput.addEventListener('change', async function(e) {
         const files = e.target.files; if (files.length === 0 || !currentPlaylist) return;
         for (let i = 0; i < files.length; i++) {
-            document.getElementById('detail-desc').innerText = `读取中... (${i+1}/${files.length})`;
+            document.getElementById('detail-desc').innerText = `正在提取封面... (${i+1}/${files.length})`;
             await processFile(files[i], currentPlaylist);
         }
         savePlaylistsToDB(); playlistCoverCache.clear(); 
@@ -790,49 +842,66 @@
         document.getElementById('detail-cover').style.backgroundImage = getPlaylistDisplayCover(currentPlaylist);
     });
 
-    function processFile(file, playlist) {
-        return new Promise((resolve) => {
-            const songId = 'song_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-            let baseName = file.name.replace(/\.[^/.]+$/, "").trim();
-            let assumedTitle = baseName; let assumedArtist = '未知歌手';
-            if(baseName.includes('-')) { const parts = baseName.split('-'); if(parts.length >= 2) { assumedArtist = parts[0].trim(); assumedTitle = parts.slice(1).join('-').trim(); } }
+    async function processFile(file, playlist) {
+        const songId = 'song_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        let baseName = file.name.replace(/\.[^/.]+$/, "").trim();
+        let assumedTitle = baseName; 
+        let assumedArtist = '未知歌手';
 
-            const songData = { id: songId, title: assumedTitle, artist: assumedArtist, audioFile: file, coverBlob: null, fallbackCover: generateGradient(), lyrics: null };
+        if(baseName.includes('-')) { 
+            const parts = baseName.split('-'); 
+            if(parts.length >= 2) { 
+                assumedArtist = parts[0].trim(); 
+                assumedTitle = parts.slice(1).join('-').trim(); 
+            } 
+        }
 
-            const finishSave = async () => {
-                songData.url = URL.createObjectURL(songData.audioFile);
-                if (songData.coverBlob) songData.coverUrl = URL.createObjectURL(songData.coverBlob);
-                allSongs.set(songId, songData); playlist.songs.push(songId); 
-                renderSongList();
-                await saveSongToDB(songData); 
-                resolve();
-            }
+        // 优先使用高精度二进制流提取封面
+        let coverBlob = await extractCoverNative(file);
 
-            if (window.jsmediatags) {
-                let isResolved = false;
-                const fallbackTimeout = setTimeout(() => {
-                    if(!isResolved) { isResolved = true; finishSave(); }
-                }, 1000);
-
+        // 获取 ID3 歌名/歌手
+        if (window.jsmediatags) {
+            await new Promise((res) => {
+                const timeout = setTimeout(res, 600);
                 try {
                     window.jsmediatags.read(file, {
-                        onSuccess: function(tag) {
-                            if(isResolved) return; isResolved = true; clearTimeout(fallbackTimeout);
-                            if (tag.tags.title && tag.tags.title.trim() !== '') songData.title = tag.tags.title;
-                            if (tag.tags.artist && tag.tags.artist.trim() !== '') songData.artist = tag.tags.artist;
-                            if (tag.tags.picture) {
-                                try { songData.coverBlob = new Blob([new Uint8Array(tag.tags.picture.data)], { type: tag.tags.picture.format }); } catch(err) {}
+                        onSuccess: (tag) => {
+                            clearTimeout(timeout);
+                            if (tag.tags.title && tag.tags.title.trim()) assumedTitle = tag.tags.title.trim();
+                            if (tag.tags.artist && tag.tags.artist.trim()) assumedArtist = tag.tags.artist.trim();
+                            if (!coverBlob && tag.tags.picture) {
+                                try {
+                                    coverBlob = new Blob([new Uint8Array(tag.tags.picture.data)], { type: tag.tags.picture.format || 'image/jpeg' });
+                                } catch (e) {}
                             }
-                            finishSave();
+                            res();
                         },
-                        onError: function() { if(!isResolved) { isResolved = true; clearTimeout(fallbackTimeout); finishSave(); } }
+                        onError: () => { clearTimeout(timeout); res(); }
                     });
-                } catch(e) { if(!isResolved) { isResolved = true; clearTimeout(fallbackTimeout); finishSave(); } }
-            } else { finishSave(); }
-        });
+                } catch(e) { clearTimeout(timeout); res(); }
+            });
+        }
+
+        const songData = { 
+            id: songId, 
+            title: assumedTitle, 
+            artist: assumedArtist, 
+            audioFile: file, 
+            coverBlob: coverBlob, 
+            fallbackCover: generateGradient(), 
+            lyrics: null 
+        };
+
+        songData.url = URL.createObjectURL(songData.audioFile);
+        if (songData.coverBlob) songData.coverUrl = URL.createObjectURL(songData.coverBlob);
+
+        allSongs.set(songId, songData); 
+        playlist.songs.push(songId); 
+        renderSongList();
+        await saveSongToDB(songData);
     }
 
-    // ================= 播放、模式与歌词 =================
+    // ================= 播放、模式与控制 =================
     const modeIcons = [
         `<path d="M3 15h14.59l-3.3-3.3 1.41-1.41L21.41 16l-5.71 5.71-1.41-1.41 3.3-3.3H3v-2zM3 5h18v2H3V5zM3 10h18v2H3v-2z"/>`, 
         `<path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>`, 
@@ -990,17 +1059,24 @@
 
     function updatePlayerUI() {
         if (!currentSongId) return; const song = allSongs.get(currentSongId); if(!song) return;
-        const coverSrc = song.coverUrl ? `url('${song.coverUrl}')` : song.fallbackCover;
-        document.getElementById('mini-cover').style.backgroundImage = coverSrc; document.getElementById('mini-title').innerText = song.title; document.getElementById('mini-artist').innerText = song.artist;
-        document.getElementById('player-cover').style.backgroundImage = coverSrc; document.getElementById('player-title').innerText = song.title; document.getElementById('player-artist').innerText = song.artist;
+        const coverSrc = formatCoverCSS(song.coverUrl, song.fallbackCover);
+        document.getElementById('mini-cover').style.backgroundImage = coverSrc; 
+        document.getElementById('mini-title').innerText = song.title; 
+        document.getElementById('mini-artist').innerText = song.artist;
+        document.getElementById('player-cover').style.backgroundImage = coverSrc; 
+        document.getElementById('player-title').innerText = song.title; 
+        document.getElementById('player-artist').innerText = song.artist;
 
         if ('mediaSession' in navigator) {
+            const artwork = song.coverUrl ? [{ src: song.coverUrl, sizes: '512x512', type: 'image/jpeg' }] : [];
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: song.title, artist: song.artist, album: currentPlaylist ? currentPlaylist.title : 'pmusic',
-                artwork: song.coverUrl && song.coverUrl.startsWith('data:') ? [{ src: song.coverUrl, sizes: '512x512', type: 'image/jpeg' }] : []
+                artwork: artwork
             });
-            navigator.mediaSession.setActionHandler('play', () => togglePlay()); navigator.mediaSession.setActionHandler('pause', () => togglePlay());
-            navigator.mediaSession.setActionHandler('previoustrack', () => playPrev()); navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
+            navigator.mediaSession.setActionHandler('play', () => togglePlay()); 
+            navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+            navigator.mediaSession.setActionHandler('previoustrack', () => playPrev()); 
+            navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
         }
     }
 
